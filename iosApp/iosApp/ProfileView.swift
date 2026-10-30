@@ -65,6 +65,17 @@ struct ProfileView: View {
         // As a tab the banner is a header: let the gradient extend under the
         // status bar at the top, consistent with the other tab screens' chrome.
         .ignoresSafeArea(edges: .top)
+        // Language pill overlaid at the top-trailing edge. The overlay is
+        // attached OUTSIDE the `.ignoresSafeArea(edges: .top)` ScrollView, so it
+        // lives in the safe-area-respecting space: its top aligns with the
+        // status-bar bottom, and `AppLayout.topChromeSpacing` adds the same gap
+        // the old "+ 8" produced — WITHOUT reading `safeAreaInsets` manually and
+        // WITHOUT reserving a strip that would push the borderless banner down.
+        .overlay(alignment: .topTrailing) {
+            languageButton
+                .padding(.trailing, 16)
+                .padding(.top, AppLayout.topChromeSpacing)
+        }
         // This screen is inside the Profile tab's NavigationStack (so the edit
         // button can push). Hide the nav bar HERE so the gradient banner still
         // reaches the top on the main profile page; the pushed edit page shows
@@ -98,18 +109,6 @@ struct ProfileView: View {
                 bottomTrailingRadius: 20
             )
         )
-        // The language button is overlaid AFTER the clip so the rounded-bottom
-        // clipShape never clips it, keeping the whole pill tappable. It's pinned
-        // top-trailing and pushed below the status bar using the top safe-area
-        // inset (the banner itself ignores the top safe area).
-        .overlay(alignment: .topTrailing) {
-            GeometryReader { geo in
-                languageButton
-                    .padding(.trailing, 16)
-                    .padding(.top, geo.safeAreaInsets.top + 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-            }
-        }
     }
 
     // MARK: Language picker (globe button + native Menu)

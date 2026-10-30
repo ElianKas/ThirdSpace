@@ -91,10 +91,13 @@ Additional rules:
 
 ## Known Limitations
 
-- **No iOS XCTest target exists.** There are no automated iOS unit or UI tests.
-  iOS-specific verification is limited to a simulator Debug build (BUILD) and an
-  optional boot/launch smoke check (APP LAUNCH). iOS feature behavior is **not**
-  automatically TESTED.
+- **No iOS XCTest target exists — but the iOS build IS runnable here.** There are
+  no automated iOS unit or UI tests. However, the iOS simulator Debug build via
+  `xcodebuild` DOES run in this environment and is the **required BUILD gate** for
+  any `iosApp`/`iosMain` change. iOS-specific verification therefore consists of
+  that simulator Debug build (BUILD) plus an optional boot/launch smoke check (APP
+  LAUNCH). iOS feature behavior is **not** automatically TESTED (no XCTest target);
+  the absence of iOS tests does NOT mean the iOS build is unavailable.
 - **Android instrumented / Compose UI tests require a device or emulator.** The
   `androidDeviceTest` source set and `connectedAndroidDeviceTest` task exist, but
   their execution depends on an available emulator/device, which is

@@ -29,15 +29,6 @@ struct MapBaseView: View {
                 .font(.system(size: 15))
                 .foregroundColor(AppColor.textFaint)
 
-            // Top controls: frosted search bar + filter chips
-            VStack(spacing: 8) {
-                searchBar
-                filterChips
-                Spacer()
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-
             // Bottom-left vertical control stack
             VStack {
                 Spacer()
@@ -59,6 +50,18 @@ struct MapBaseView: View {
             }
             .padding(.trailing, 16)
             .padding(.bottom, 32)
+        }
+        // Top controls (search bar + filter chips) placed BELOW the real top
+        // safe-area inset via `.topChrome` so they clear the status bar /
+        // Dynamic Island, while `AppColor.page.ignoresSafeArea()` keeps the map
+        // background borderless to the top. The gap uses the shared
+        // `AppLayout.topChromeSpacing` token (no fixed 12pt magic number).
+        .topChrome(alignment: .leading) {
+            VStack(spacing: 8) {
+                searchBar
+                filterChips
+            }
+            .padding(.horizontal, 16)
         }
     }
 
