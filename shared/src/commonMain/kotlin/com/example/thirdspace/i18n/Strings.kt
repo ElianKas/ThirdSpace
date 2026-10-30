@@ -24,6 +24,7 @@ interface Strings {
     val tabPosts: String
     val tabMap: String
     val tabDiscover: String
+    val tabProfile: String
     val discoverPlaceholder: String
 
     // Map (MapBaseView)
@@ -96,6 +97,33 @@ interface Strings {
     val profileEmptyPosts: String
     val profileSettings: String
 
+    // Profile edit screen (ProfileEditView) — static UI text only; the current
+    // email and the seeded name/bio/city are dynamic content and are NOT part
+    // of the string table.
+    val profileEditTitle: String
+    val editTabProfile: String
+    val editTabAccount: String
+    val fieldName: String
+    val fieldBio: String
+    val fieldCity: String
+    val bioPlaceholder: String
+    val chooseBanner: String
+    val remove: String
+    val chooseAvatar: String
+    val privateProfile: String
+    val privateProfileSubtitle: String
+    val save: String
+    val blockedUsers: String
+    val logout: String
+    val deleteAccount: String
+    val changeEmail: String
+    val newEmailPlaceholder: String
+    val sendConfirmationEmail: String
+    val changePassword: String
+    val newPasswordPlaceholder: String
+    val confirmPasswordPlaceholder: String
+    val changePasswordButton: String
+
     // Plural / interpolation functions
     /** Check-in suffix: DE "war hier"/"waren hier", EN "was here"/"were here". */
     fun checkInLabel(count: Int): String
@@ -114,6 +142,12 @@ interface Strings {
      * interpolated: DE "seit $monthYear", EN "since $monthYear".
      */
     fun joinedSince(monthYear: String): String
+
+    /**
+     * Account tab "current email" line, with the (non-translated) [email]
+     * interpolated: DE "Aktuell: $email", EN "Current: $email".
+     */
+    fun accountCurrentEmail(email: String): String
 }
 
 /** German strings — the default language. */
@@ -127,6 +161,7 @@ object De : Strings {
     override val tabPosts = "Posts"
     override val tabMap = "Map"
     override val tabDiscover = "Discover"
+    override val tabProfile = "Profil"
     override val discoverPlaceholder = "Discover folgt"
 
     // Map
@@ -199,6 +234,31 @@ object De : Strings {
     override val profileEmptyPosts = "Noch keine Posts"
     override val profileSettings = "Einstellungen"
 
+    // Profile edit screen
+    override val profileEditTitle = "Profil-Einstellungen"
+    override val editTabProfile = "Profil"
+    override val editTabAccount = "Konto"
+    override val fieldName = "Name"
+    override val fieldBio = "Bio"
+    override val fieldCity = "Stadt"
+    override val bioPlaceholder = "Kurz über dich…"
+    override val chooseBanner = "Banner wählen"
+    override val remove = "Entfernen"
+    override val chooseAvatar = "Profilbild wählen"
+    override val privateProfile = "Privates Profil"
+    override val privateProfileSubtitle = "Nur akzeptierte Follower sehen deine Inhalte."
+    override val save = "Speichern"
+    override val blockedUsers = "Blockierte Nutzer"
+    override val logout = "Abmelden"
+    override val deleteAccount = "Konto löschen"
+    override val changeEmail = "E-Mail ändern"
+    override val newEmailPlaceholder = "neue@beispiel.de"
+    override val sendConfirmationEmail = "Bestätigungs-Mail senden"
+    override val changePassword = "Passwort ändern"
+    override val newPasswordPlaceholder = "Neues Passwort (mind. 8 Zeichen)"
+    override val confirmPasswordPlaceholder = "Bestätigen"
+    override val changePasswordButton = "Passwort ändern"
+
     // Plural / interpolation
     override fun checkInLabel(count: Int): String =
         if (count == 1) "war hier" else "waren hier"
@@ -214,6 +274,9 @@ object De : Strings {
 
     override fun joinedSince(monthYear: String): String =
         "seit $monthYear"
+
+    override fun accountCurrentEmail(email: String): String =
+        "Aktuell: $email"
 }
 
 /** English strings. */
@@ -227,6 +290,7 @@ object En : Strings {
     override val tabPosts = "Posts"
     override val tabMap = "Map"
     override val tabDiscover = "Discover"
+    override val tabProfile = "Profile"
     override val discoverPlaceholder = "Discover coming soon"
 
     // Map
@@ -299,6 +363,31 @@ object En : Strings {
     override val profileEmptyPosts = "No posts yet"
     override val profileSettings = "Settings"
 
+    // Profile edit screen
+    override val profileEditTitle = "Profile settings"
+    override val editTabProfile = "Profile"
+    override val editTabAccount = "Account"
+    override val fieldName = "Name"
+    override val fieldBio = "Bio"
+    override val fieldCity = "City"
+    override val bioPlaceholder = "A bit about you…"
+    override val chooseBanner = "Choose banner"
+    override val remove = "Remove"
+    override val chooseAvatar = "Choose photo"
+    override val privateProfile = "Private profile"
+    override val privateProfileSubtitle = "Only accepted followers can see your content."
+    override val save = "Save"
+    override val blockedUsers = "Blocked users"
+    override val logout = "Log out"
+    override val deleteAccount = "Delete account"
+    override val changeEmail = "Change email"
+    override val newEmailPlaceholder = "new@example.com"
+    override val sendConfirmationEmail = "Send confirmation email"
+    override val changePassword = "Change password"
+    override val newPasswordPlaceholder = "New password (min. 8 characters)"
+    override val confirmPasswordPlaceholder = "Confirm"
+    override val changePasswordButton = "Change password"
+
     // Plural / interpolation
     override fun checkInLabel(count: Int): String =
         if (count == 1) "was here" else "were here"
@@ -314,4 +403,7 @@ object En : Strings {
 
     override fun joinedSince(monthYear: String): String =
         "since $monthYear"
+
+    override fun accountCurrentEmail(email: String): String =
+        "Current: $email"
 }

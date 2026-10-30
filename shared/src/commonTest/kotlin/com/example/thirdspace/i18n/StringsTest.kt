@@ -18,7 +18,7 @@ class StringsTest {
     /** All non-parameterized string properties, per language instance. */
     private fun allProperties(s: Strings): List<String> = listOf(
         s.feedEyebrow, s.feedTitle,
-        s.tabPosts, s.tabMap, s.tabDiscover, s.discoverPlaceholder,
+        s.tabPosts, s.tabMap, s.tabDiscover, s.tabProfile, s.discoverPlaceholder,
         s.mapSearchPlaceholder, s.mapPlaceholder,
         s.chipMyPins, s.chipAll, s.chipCafes, s.chipParks, s.chipBars,
         s.chipHidden, s.chipVerified, s.chipFriends, s.chipSaved,
@@ -36,6 +36,14 @@ class StringsTest {
         s.profileStatFollowing, s.profileEdit, s.profileTabSpots,
         s.profileTabPosts, s.profileEmptySpots, s.profileEmptyPosts,
         s.profileSettings,
+        s.profileEditTitle, s.editTabProfile, s.editTabAccount,
+        s.fieldName, s.fieldBio, s.fieldCity, s.bioPlaceholder,
+        s.chooseBanner, s.remove, s.chooseAvatar,
+        s.privateProfile, s.privateProfileSubtitle, s.save,
+        s.blockedUsers, s.logout, s.deleteAccount,
+        s.changeEmail, s.newEmailPlaceholder, s.sendConfirmationEmail,
+        s.changePassword, s.newPasswordPlaceholder, s.confirmPasswordPlaceholder,
+        s.changePasswordButton,
     )
 
     // (a) Every property key is non-empty in BOTH De and En.
@@ -100,6 +108,19 @@ class StringsTest {
         assertTrue(En.joinedSince(monthYear).startsWith("since "))
         assertEquals("seit $monthYear", De.joinedSince(monthYear))
         assertEquals("since $monthYear", En.joinedSince(monthYear))
+    }
+
+    @Test
+    fun accountCurrentEmailContainsEmailAndPrefixPerLanguage() {
+        val email = "x@y.z"
+        // Both languages interpolate the (non-translated) email verbatim.
+        assertTrue(De.accountCurrentEmail(email).contains(email))
+        assertTrue(En.accountCurrentEmail(email).contains(email))
+        // Each language uses its own prefix.
+        assertTrue(De.accountCurrentEmail(email).startsWith("Aktuell: "))
+        assertTrue(En.accountCurrentEmail(email).startsWith("Current: "))
+        assertEquals("Aktuell: $email", De.accountCurrentEmail(email))
+        assertEquals("Current: $email", En.accountCurrentEmail(email))
     }
 
     // (d) AppStrings resolution returns the expected tables / sample values.

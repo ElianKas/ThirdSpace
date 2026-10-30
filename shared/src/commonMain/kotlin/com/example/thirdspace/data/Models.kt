@@ -83,8 +83,9 @@ data class FilterChipItem(
  * [monthYear] is a neutral, NON-translated dummy join month (e.g. "März 2024").
  * The localized "seit"/"since" prefix is applied separately via
  * [com.example.thirdspace.i18n.Strings.joinedSince]. All other fields
- * ([name], [username], [city], [bio]) are dynamic content and are NOT
- * translated; the counts are plain display stats.
+ * ([name], [username], [city], [bio], [email]) are dynamic content and are NOT
+ * translated; the counts are plain display stats. [email] backs the account
+ * tab's "current email" line on the edit screen.
  */
 data class Profile(
     val name: String,
@@ -92,6 +93,7 @@ data class Profile(
     val city: String,
     val monthYear: String,
     val bio: String,
+    val email: String,
     val spotCount: Int,
     val postCount: Int,
     val followerCount: Int,

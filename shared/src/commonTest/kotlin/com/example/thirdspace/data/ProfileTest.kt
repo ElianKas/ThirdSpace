@@ -28,6 +28,7 @@ class ProfileTest {
         assertTrue(profile.city.isNotEmpty())
         assertTrue(profile.monthYear.isNotEmpty())
         assertTrue(profile.bio.isNotEmpty())
+        assertTrue(profile.email.isNotEmpty())
     }
 
     @Test

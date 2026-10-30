@@ -171,6 +171,7 @@ struct UIProfile {
     let city: String
     let monthYear: String
     let bio: String
+    let email: String
     let spotCount: Int
     let postCount: Int
     let followerCount: Int
@@ -182,6 +183,7 @@ struct UIProfile {
         self.city = bridged.city
         self.monthYear = bridged.monthYear
         self.bio = bridged.bio
+        self.email = bridged.email
         self.spotCount = Int(bridged.spotCount)
         self.postCount = Int(bridged.postCount)
         self.followerCount = Int(bridged.followerCount)

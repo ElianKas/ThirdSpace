@@ -89,6 +89,7 @@ data class IosProfile(
     val city: String,
     val monthYear: String,
     val bio: String,
+    val email: String,
     val spotCount: Int,
     val postCount: Int,
     val followerCount: Int,
@@ -116,6 +117,7 @@ data class IosStrings(
     val tabPosts: String,
     val tabMap: String,
     val tabDiscover: String,
+    val tabProfile: String,
     val discoverPlaceholder: String,
     // Map
     val mapSearchPlaceholder: String,
@@ -162,6 +164,30 @@ data class IosStrings(
     val profileEmptySpots: String,
     val profileEmptyPosts: String,
     val profileSettings: String,
+    // Profile edit screen
+    val profileEditTitle: String,
+    val editTabProfile: String,
+    val editTabAccount: String,
+    val fieldName: String,
+    val fieldBio: String,
+    val fieldCity: String,
+    val bioPlaceholder: String,
+    val chooseBanner: String,
+    val remove: String,
+    val chooseAvatar: String,
+    val privateProfile: String,
+    val privateProfileSubtitle: String,
+    val save: String,
+    val blockedUsers: String,
+    val logout: String,
+    val deleteAccount: String,
+    val changeEmail: String,
+    val newEmailPlaceholder: String,
+    val sendConfirmationEmail: String,
+    val changePassword: String,
+    val newPasswordPlaceholder: String,
+    val confirmPasswordPlaceholder: String,
+    val changePasswordButton: String,
 ) {
     /** The underlying shared table, used for the formatting functions below. */
     private val table: Strings get() = AppStrings.of(languageCode)
@@ -183,6 +209,9 @@ data class IosStrings(
     /** Profile "joined since" line for the (non-translated) [monthYear]. */
     fun joinedSince(monthYear: String): String = table.joinedSince(monthYear)
 
+    /** Account tab "current email" line for the (non-translated) [email]. */
+    fun accountCurrentEmail(email: String): String = table.accountCurrentEmail(email)
+
     companion object {
         /** Build a flat [IosStrings] snapshot for the given [languageCode]. */
         fun from(languageCode: String): IosStrings {
@@ -194,6 +223,7 @@ data class IosStrings(
                 tabPosts = s.tabPosts,
                 tabMap = s.tabMap,
                 tabDiscover = s.tabDiscover,
+                tabProfile = s.tabProfile,
                 discoverPlaceholder = s.discoverPlaceholder,
                 mapSearchPlaceholder = s.mapSearchPlaceholder,
                 mapPlaceholder = s.mapPlaceholder,
@@ -234,6 +264,29 @@ data class IosStrings(
                 profileEmptySpots = s.profileEmptySpots,
                 profileEmptyPosts = s.profileEmptyPosts,
                 profileSettings = s.profileSettings,
+                profileEditTitle = s.profileEditTitle,
+                editTabProfile = s.editTabProfile,
+                editTabAccount = s.editTabAccount,
+                fieldName = s.fieldName,
+                fieldBio = s.fieldBio,
+                fieldCity = s.fieldCity,
+                bioPlaceholder = s.bioPlaceholder,
+                chooseBanner = s.chooseBanner,
+                remove = s.remove,
+                chooseAvatar = s.chooseAvatar,
+                privateProfile = s.privateProfile,
+                privateProfileSubtitle = s.privateProfileSubtitle,
+                save = s.save,
+                blockedUsers = s.blockedUsers,
+                logout = s.logout,
+                deleteAccount = s.deleteAccount,
+                changeEmail = s.changeEmail,
+                newEmailPlaceholder = s.newEmailPlaceholder,
+                sendConfirmationEmail = s.sendConfirmationEmail,
+                changePassword = s.changePassword,
+                newPasswordPlaceholder = s.newPasswordPlaceholder,
+                confirmPasswordPlaceholder = s.confirmPasswordPlaceholder,
+                changePasswordButton = s.changePasswordButton,
             )
         }
     }
@@ -286,6 +339,7 @@ object FeedBridge {
             it.city,
             it.monthYear,
             it.bio,
+            it.email,
             it.spotCount,
             it.postCount,
             it.followerCount,

@@ -11,19 +11,13 @@ import SwiftUI
 /// Deliberately excluded in this step (per the approved plan): profile editing,
 /// follow / DM, opening follower/following lists (counts are display-only), the
 /// language picker, count-up animations, skeletons, and real avatar/banner
-/// images. The top-right gear is a VISIBLE NO-OP placeholder reserved for the
-/// step-2 language settings.
+/// images. The language/settings entry will later be reached via the
+/// "Profil bearbeiten" button (not built here).
 ///
-/// Presented as a sheet from the feed header avatar; follows the project's
-/// sheet pattern at the call site (`.presentationDetents` +
-/// `.presentationDragIndicator(.visible)`).
+/// Lives as its own bottom-navigation tab (`RootTabView`). It is no longer a
+/// sheet, so there is no close/gear chrome and nothing to dismiss; the banner
+/// is a plain decorative header that extends to the top like the other tabs.
 struct ProfileView: View {
-    /// Optional explicit close handler. Defaults to `nil`, in which case the
-    /// environment `dismiss` is used (so the view works both as a sheet and in
-    /// any future push context).
-    var onClose: (() -> Void)? = nil
-
-    @Environment(\.dismiss) private var dismiss
     @Environment(Localization.self) private var loc
 
     /// Two local tabs for the profile content. No shared segmented control
@@ -66,6 +60,14 @@ struct ProfileView: View {
             }
         }
         .background(AppColor.background)
+        // As a tab the banner is a header: let the gradient extend under the
+        // status bar at the top, consistent with the other tab screens' chrome.
+        .ignoresSafeArea(edges: .top)
+        // This screen is inside the Profile tab's NavigationStack (so the edit
+        // button can push). Hide the nav bar HERE so the gradient banner still
+        // reaches the top on the main profile page; the pushed edit page shows
+        // its own nav bar + back button.
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     // MARK: Banner
@@ -73,58 +75,27 @@ struct ProfileView: View {
     /// ~140pt rounded-bottom gradient placeholder built ONLY from AppColor
     /// tokens (no raw hex literals in the view). Approximates the legacy banner
     /// gradient; exact legacy hues are intentionally not reproduced here.
+    ///
+    /// A plain decorative header with NO icon buttons. As a tab (not a sheet)
+    /// there is nothing to close and no gear placeholder; the gradient extends
+    /// to the very top of the screen like a header.
     private var banner: some View {
-        ZStack(alignment: .top) {
-            LinearGradient(
-                colors: [
-                    AppColor.brand.opacity(0.85),
-                    AppColor.secondary.opacity(0.65),
-                    AppColor.page,
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+        LinearGradient(
+            colors: [
+                AppColor.brand.opacity(0.85),
+                AppColor.secondary.opacity(0.65),
+                AppColor.page,
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        .frame(height: 140)
+        .clipShape(
+            .rect(
+                bottomLeadingRadius: 20,
+                bottomTrailingRadius: 20
             )
-            .frame(height: 140)
-            .clipShape(
-                .rect(
-                    bottomLeadingRadius: 20,
-                    bottomTrailingRadius: 20
-                )
-            )
-
-            HStack {
-                // Close control (top-left) in a scrim circle.
-                Button {
-                    (onClose ?? { dismiss() })()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(AppColor.foreground.opacity(0.35)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close")
-
-                Spacer()
-
-                // Gear (top-right) — NO-OP placeholder for the step-2 language
-                // settings. Visible but does nothing yet.
-                Button {
-                    // Intentionally empty: language settings arrive in step 2.
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Circle().fill(AppColor.foreground.opacity(0.35)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(loc.strings.profileSettings)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 12)
-        }
+        )
     }
 
     // MARK: Avatar
@@ -179,11 +150,14 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: Edit button (no-op)
+    // MARK: Edit button (pushes the edit sub-page)
 
+    /// Pushes `ProfileEditView` onto the Profile tab's `NavigationStack`. The
+    /// soft-fill bordered look is unchanged from before; `.buttonStyle(.plain)`
+    /// keeps it from rendering as a default tappable link.
     private var editButton: some View {
-        Button {
-            // No-op in step 1: profile editing is deliberately excluded.
+        NavigationLink {
+            ProfileEditView()
         } label: {
             Text(loc.strings.profileEdit)
                 .font(.system(size: 15, weight: .semibold))
@@ -229,7 +203,12 @@ struct ProfileView: View {
                     .fill(active ? AppColor.brand : Color.clear)
                     .frame(height: 2)
             }
+            // Fill the full tab width AND pad vertically so the whole tab area
+            // (text + indicator + surrounding space) is a comfortable tap
+            // target, then make that entire rectangle hit-testable.
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

@@ -3,7 +3,7 @@ import SwiftUI
 /// The NATIVE SwiftUI feed.
 ///
 /// Built on a plain `List` (`.listStyle(.plain)`):
-/// - The feed header (eyebrow "POSTS" + headline "Feed" + search/bell/avatar
+/// - The feed header (eyebrow "POSTS" + headline "Feed" + search/compose/bell
 ///   icons + hairline) is a PINNED section header. A plain list keeps the
 ///   section header pinned to the top while the rows scroll beneath it. The
 ///   header sits in normal layout flow at rest, so it never overlaps the first
@@ -28,7 +28,6 @@ struct NativeFeedView: View {
     @State private var posts: [UIPost] = FeedData.posts()
     @State private var selectedPost: UIPost?
     @State private var showCreate = false
-    @State private var showProfile = false
 
     var body: some View {
         List {
@@ -72,13 +71,6 @@ struct NativeFeedView: View {
         // sheet pattern: presenter sets detents + drag indicator.
         .sheet(isPresented: $showCreate) {
             CreatePostView()
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-        }
-        // Profile sheet, triggered from the header avatar. Same sheet pattern:
-        // presenter sets detents + drag indicator.
-        .sheet(isPresented: $showProfile) {
-            ProfileView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -126,12 +118,6 @@ struct NativeFeedView: View {
                     Image(systemName: "bell")
                         .font(.system(size: 18))
                         .foregroundColor(AppColor.foreground)
-                    Button {
-                        showProfile = true
-                    } label: {
-                        AvatarView(name: "Du", size: 32)
-                    }
-                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 20)

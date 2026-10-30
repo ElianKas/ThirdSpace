@@ -2,10 +2,12 @@ import SwiftUI
 
 /// Native SwiftUI `TabView` — the primary app navigation.
 ///
-/// Three fully native tabs (no Compose):
-/// - "Posts":   the native SwiftUI feed (`NativeFeedView`).
-/// - "Map":     the native map base (`MapBaseView`) — no real map engine yet.
+/// Four fully native tabs (no Compose):
+/// - "Posts":    the native SwiftUI feed (`NativeFeedView`).
+/// - "Map":      the native map base (`MapBaseView`) — no real map engine yet.
 /// - "Discover": an inert placeholder for a future screen.
+/// - "Profile":  the native SwiftUI profile (`ProfileView`), wrapped in a
+///   `NavigationStack` so it can push the "Profil bearbeiten" edit sub-page.
 struct RootTabView: View {
     @Environment(Localization.self) private var loc
 
@@ -27,6 +29,13 @@ struct RootTabView: View {
                 .tabItem {
                     Label(loc.strings.tabDiscover, systemImage: "sparkles")
                 }
+
+            NavigationStack {
+                ProfileView()
+            }
+            .tabItem {
+                Label(loc.strings.tabProfile, systemImage: "person.crop.circle")
+            }
         }
         .tint(AppColor.brand)
     }

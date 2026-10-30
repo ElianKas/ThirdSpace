@@ -268,6 +268,7 @@ object SampleData {
         city = "Berlin",
         monthYear = "März 2024",
         bio = "Immer auf der Suche nach dem nächsten guten Kaffee und ruhigen Ecken in der Stadt.",
+        email = "elian@thirdspace.app",
         spotCount = 12,
         postCount = posts.size,
         followerCount = 184,
