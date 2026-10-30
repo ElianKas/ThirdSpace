@@ -8,11 +8,13 @@ import SwiftUI
 /// content (name/username/city/bio/monthYear and the spot/post content) is
 /// interpolated verbatim.
 ///
+/// A live language picker (globe button) sits at the top-right of the banner;
+/// tapping it opens a native `Menu` listing the available languages and
+/// switches the entire UI language live (in-memory, not persisted).
+///
 /// Deliberately excluded in this step (per the approved plan): profile editing,
-/// follow / DM, opening follower/following lists (counts are display-only), the
-/// language picker, count-up animations, skeletons, and real avatar/banner
-/// images. The language/settings entry will later be reached via the
-/// "Profil bearbeiten" button (not built here).
+/// follow / DM, opening follower/following lists (counts are display-only),
+/// count-up animations, skeletons, and real avatar/banner images.
 ///
 /// Lives as its own bottom-navigation tab (`RootTabView`). It is no longer a
 /// sheet, so there is no close/gear chrome and nothing to dismiss; the banner
@@ -96,6 +98,61 @@ struct ProfileView: View {
                 bottomTrailingRadius: 20
             )
         )
+        // The language button is overlaid AFTER the clip so the rounded-bottom
+        // clipShape never clips it, keeping the whole pill tappable. It's pinned
+        // top-trailing and pushed below the status bar using the top safe-area
+        // inset (the banner itself ignores the top safe area).
+        .overlay(alignment: .topTrailing) {
+            GeometryReader { geo in
+                languageButton
+                    .padding(.trailing, 16)
+                    .padding(.top, geo.safeAreaInsets.top + 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            }
+        }
+    }
+
+    // MARK: Language picker (globe button + native Menu)
+
+    /// A bordered pill showing the active language code + a globe glyph. Tapping
+    /// opens a native `Menu` listing every available language by its endonym; a
+    /// checkmark marks the active one. Selecting an entry switches the entire UI
+    /// language live via `loc.setLanguage`. The pill reads `loc.languageCode`
+    /// (and the a11y label `loc.strings.languageMenu`) so it updates live.
+    ///
+    /// Uses only `AppColor` tokens: a frosted strong fill + hairline border so
+    /// it reads on the gradient, with foreground text in `AppColor.foreground`.
+    private var languageButton: some View {
+        Menu {
+            ForEach(loc.availableLanguages) { lang in
+                Button {
+                    loc.setLanguage(lang.code)
+                } label: {
+                    if lang.code == loc.languageCode {
+                        Label(lang.displayName, systemImage: "checkmark")
+                    } else {
+                        Text(lang.displayName)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(loc.languageCode.uppercased())
+                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: "globe")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .foregroundColor(AppColor.foreground)
+            .padding(.horizontal, 12)
+            .frame(height: 34)
+            .background(
+                Capsule().fill(AppColor.frostStrong)
+            )
+            .overlay(
+                Capsule().stroke(AppColor.border, lineWidth: 1)
+            )
+        }
+        .accessibilityLabel(loc.strings.languageMenu)
     }
 
     // MARK: Avatar

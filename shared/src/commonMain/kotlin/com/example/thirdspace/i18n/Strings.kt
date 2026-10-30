@@ -70,6 +70,10 @@ interface Strings {
     val visibilityFriends: String
     val createPost: String
 
+    // Language picker (ProfileView globe button) — accessibility label for the
+    // menu that switches the UI language live.
+    val languageMenu: String
+
     // Report sheet (ReportSheetView)
     val reportTitle: String
     val reportHint: String
@@ -207,6 +211,9 @@ object De : Strings {
     override val visibilityFriends = "Freunde"
     override val createPost = "Posten"
 
+    // Language picker
+    override val languageMenu = "Sprache ändern"
+
     // Report sheet
     override val reportTitle = "Melden"
     override val reportHint =
@@ -335,6 +342,9 @@ object En : Strings {
     override val visibilityPublic = "Public"
     override val visibilityFriends = "Friends"
     override val createPost = "Post"
+
+    // Language picker
+    override val languageMenu = "Change language"
 
     // Report sheet
     override val reportTitle = "Report"

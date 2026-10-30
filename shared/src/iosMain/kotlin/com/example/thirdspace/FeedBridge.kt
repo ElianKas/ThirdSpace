@@ -73,6 +73,21 @@ data class IosReportReason(
 )
 
 /**
+ * Flat, ObjC-friendly descriptor of a selectable UI language for the SwiftUI
+ * language picker (the globe button on the profile).
+ *
+ * Only String crosses the boundary (no nullables, no Long, no enums). Mirrors
+ * the shared [com.example.thirdspace.i18n.AppLanguage] so the picker has a
+ * single source of truth in the shared module. [code] is the flat language
+ * code ("de" / "en"); [displayName] is the endonym ("Deutsch" / "English"),
+ * intentionally NOT translated.
+ */
+data class IosLanguage(
+    val code: String,
+    val displayName: String,
+)
+
+/**
  * Flat, ObjC-friendly snapshot of the current user's profile for the SwiftUI
  * profile screen.
  *
@@ -147,6 +162,8 @@ data class IosStrings(
     val visibilityPublic: String,
     val visibilityFriends: String,
     val createPost: String,
+    // Language picker
+    val languageMenu: String,
     // Report sheet
     val reportTitle: String,
     val reportHint: String,
@@ -227,6 +244,7 @@ data class IosStrings(
                 discoverPlaceholder = s.discoverPlaceholder,
                 mapSearchPlaceholder = s.mapSearchPlaceholder,
                 mapPlaceholder = s.mapPlaceholder,
+                languageMenu = s.languageMenu,
                 spotNoDescription = s.spotNoDescription,
                 actionRoute = s.actionRoute,
                 actionSave = s.actionSave,
@@ -326,6 +344,15 @@ object FeedBridge {
 
     /** Flat localized strings for the current language. */
     fun currentStrings(): IosStrings = IosStrings.from(currentLanguageCode)
+
+    /**
+     * All selectable UI languages, in [AppLanguage] declaration order, as flat
+     * [IosLanguage] descriptors for the SwiftUI language picker. The shared
+     * [AppLanguage] enum is the single source of truth; [IosLanguage.displayName]
+     * carries the (non-translated) endonym.
+     */
+    fun availableLanguages(): List<IosLanguage> =
+        AppLanguage.entries.map { IosLanguage(it.code, it.displayName) }
 
     /**
      * Flat snapshot of the current user's own dummy profile, safe to consume

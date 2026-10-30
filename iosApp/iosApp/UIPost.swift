@@ -157,6 +157,25 @@ struct UIReportReason: Identifiable {
     }
 }
 
+// MARK: - UILanguage (Swift mirror of Kotlin IosLanguage)
+
+/// Swift-side value type for a selectable UI language, built from the bridged
+/// `IosLanguage` returned by `FeedBridge.shared.availableLanguages()`. The
+/// shared module (its `AppLanguage` enum) is the single source of truth for the
+/// language list (no Swift-only list). `code` is the flat language code
+/// ("de" / "en"); `displayName` is the endonym ("Deutsch" / "English"),
+/// intentionally NOT translated.
+struct UILanguage: Identifiable {
+    let code: String
+    let displayName: String
+    var id: String { code }
+
+    init(bridged: IosLanguage) {
+        self.code = bridged.code
+        self.displayName = bridged.displayName
+    }
+}
+
 // MARK: - UIProfile (Swift mirror of Kotlin IosProfile)
 
 /// Swift-side value type for the current user's own profile. Built from the
@@ -212,6 +231,12 @@ enum FeedData {
     /// Pull the bridged map filter chips from the shared framework.
     static func mapFilters() -> [UIFilterChip] {
         FeedBridge.shared.mapFilters().map { UIFilterChip(bridged: $0) }
+    }
+
+    /// Pull the bridged selectable UI languages from the shared framework.
+    /// Single source of truth for the profile language picker.
+    static func availableLanguages() -> [UILanguage] {
+        FeedBridge.shared.availableLanguages().map { UILanguage(bridged: $0) }
     }
 
     /// Pull the bridged comments for a post from the shared framework. Empty

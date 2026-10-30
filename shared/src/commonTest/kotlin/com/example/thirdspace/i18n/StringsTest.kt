@@ -22,6 +22,7 @@ class StringsTest {
         s.mapSearchPlaceholder, s.mapPlaceholder,
         s.chipMyPins, s.chipAll, s.chipCafes, s.chipParks, s.chipBars,
         s.chipHidden, s.chipVerified, s.chipFriends, s.chipSaved,
+        s.languageMenu,
         s.spotNoDescription, s.actionRoute, s.actionSave, s.actionWasHere,
         s.writeComment, s.share, s.report,
         s.commentsEmpty, s.commentPlaceholder, s.localAuthorYou, s.justNow,
@@ -154,5 +155,29 @@ class StringsTest {
         assertEquals(AppLanguage.EN, AppLanguage.fromCode("en"))
         assertEquals("de", AppLanguage.DE.code)
         assertEquals("en", AppLanguage.EN.code)
+    }
+
+    // (f) Available languages backing the native language picker.
+    //
+    // `FeedBridge.availableLanguages()` lives in iosMain (not testable in
+    // commonTest), so these tests assert the commonMain `AppLanguage` source it
+    // derives from: the expected entries, codes, and (non-translated) endonym
+    // display names.
+
+    @Test
+    fun appLanguageHasDeAndEnEntriesWithExpectedCodes() {
+        val codes = AppLanguage.entries.map { it.code }
+        assertEquals(listOf("de", "en"), codes)
+    }
+
+    @Test
+    fun appLanguageDisplayNamesAreTheExpectedEndonyms() {
+        assertEquals("Deutsch", AppLanguage.DE.displayName)
+        assertEquals("English", AppLanguage.EN.displayName)
+    }
+
+    @Test
+    fun allAppLanguageDisplayNamesAreNonEmpty() {
+        assertTrue(AppLanguage.entries.all { it.displayName.isNotEmpty() })
     }
 }

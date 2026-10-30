@@ -11,10 +11,10 @@ import Shared
 ///     Text(loc.strings.feedTitle)
 ///     Text(loc.strings.checkInLabel(count: count))
 ///
-/// There is NO language-selection UI yet. Switching works technically via
-/// `setLanguage(_:)` + the backing `FeedBridge.shared.setLanguage`, but nothing
-/// in the UI calls it. DE is the default. (To preview EN without a menu,
-/// temporarily initialize `Localization(code: "en")` in `iOSApp.swift`.)
+/// A live language picker (the globe button at the top-right of the profile)
+/// calls `setLanguage(_:)` to switch the UI language in-memory at runtime; DE
+/// is the default at launch and the choice is NOT persisted across relaunches.
+/// `availableLanguages` lists the selectable options for that picker.
 ///
 /// `@Observable` + `@Environment(Type.self)` is the iOS 17+ Observation pattern
 /// and is valid at the project's iOS 18.2 target.
@@ -28,6 +28,11 @@ final class Localization {
         languageCode = FeedBridge.shared.currentLanguageCode()
         strings = FeedBridge.shared.currentStrings()
     }
+
+    /// The selectable UI languages for the picker, sourced from the shared
+    /// module (single source of truth). Each carries its flat `code` and
+    /// (non-translated) endonym `displayName`.
+    var availableLanguages: [UILanguage] { FeedData.availableLanguages() }
 
     /// Switch the UI language ("de" / "en"). Unknown codes fall back to DE in
     /// the shared layer. Re-reads the snapshot so observing views update.

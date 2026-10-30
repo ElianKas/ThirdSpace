@@ -14,7 +14,11 @@ import SwiftUI
 /// Every control is a no-op (UI only).
 struct MapBaseView: View {
     @Environment(Localization.self) private var loc
-    private let filters: [UIFilterChip] = FeedData.mapFilters()
+    // Computed (not a stored `let`) so the chip labels re-resolve from the
+    // shared bridge on every render. A language change re-renders this view
+    // (its body reads `loc.strings.*`), so the chips pick up the new language
+    // live instead of staying frozen at their first-resolved values.
+    private var filters: [UIFilterChip] { FeedData.mapFilters() }
 
     var body: some View {
         ZStack {

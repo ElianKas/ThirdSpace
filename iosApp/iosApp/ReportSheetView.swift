@@ -32,7 +32,11 @@ struct ReportSheetView: View {
     /// Optional free-text details (local only, never submitted anywhere yet).
     @State private var details: String = ""
 
-    private let reasons: [UIReportReason] = FeedData.reportReasons()
+    // Computed (not a stored `let`) so the reason labels re-resolve from the
+    // shared bridge on every render. A language change re-renders this view
+    // (its body reads `loc.strings.*`), so the reasons pick up the new language
+    // live instead of staying frozen at their first-resolved values.
+    private var reasons: [UIReportReason] { FeedData.reportReasons() }
 
     private func close() {
         if let onClose {
