@@ -19,6 +19,10 @@ struct PostCardView: View {
     /// the spot detail sheet.
     var onTap: (() -> Void)? = nil
 
+    /// Drives the report ("Melden") sheet opened from the ellipsis menu. Local
+    /// to each card so it works in the `List`-based feed without lifting state.
+    @State private var showReport = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             spotHeader
@@ -38,6 +42,13 @@ struct PostCardView: View {
         .padding(.bottom, 24)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
+        // Report sheet. Follows the project sheet pattern: the presenter sets
+        // detents + drag indicator. Opened from the ellipsis Menu below.
+        .sheet(isPresented: $showReport) {
+            ReportSheetView(post: post)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: 1. Spot header
@@ -64,9 +75,24 @@ struct PostCardView: View {
             Spacer(minLength: 8)
 
             HStack(spacing: 12) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15))
-                    .foregroundColor(AppColor.textFaint)
+                // Interactive overflow menu. A `Menu`/`Button` consumes its own
+                // tap, so tapping the ellipsis opens the menu WITHOUT also
+                // firing the card's `.onTapGesture` (which opens the SpotSheet).
+                Menu {
+                    Button {
+                        showReport = true
+                    } label: {
+                        Label("Melden", systemImage: "flag")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 15))
+                        .foregroundColor(AppColor.textFaint)
+                        // Enlarge the hit target without changing the visual.
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
                 Image(systemName: "bookmark")
                     .font(.system(size: 17))
                     .foregroundColor(AppColor.foreground)

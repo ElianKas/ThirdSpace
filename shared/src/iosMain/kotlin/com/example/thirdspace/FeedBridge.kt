@@ -43,6 +43,32 @@ data class IosFilterChip(
 )
 
 /**
+ * Flat, ObjC-friendly comment for the SwiftUI comments sheet.
+ *
+ * Only String crosses the boundary (no nullables, no Long, no enums). Mirrors
+ * the shared [com.example.thirdspace.data.Comment] so the comments list has a
+ * single source of truth in the shared module. No replies/threading.
+ */
+data class IosComment(
+    val id: String,
+    val authorName: String,
+    val timeLabel: String,
+    val text: String,
+)
+
+/**
+ * Flat, ObjC-friendly report reason for the SwiftUI report ("Melden") sheet.
+ *
+ * Only String crosses the boundary (no nullables, no Long, no enums). Mirrors
+ * the shared [com.example.thirdspace.data.ReportReason] so the reason list has
+ * a single source of truth in the shared module (not a Swift-only list).
+ */
+data class IosReportReason(
+    val key: String,
+    val label: String,
+)
+
+/**
  * Bridge exposing shared sample data to Swift as flat value types.
  *
  * Declared as an `object` so Swift sees a singleton accessor
@@ -72,6 +98,28 @@ object FeedBridge {
             },
             commentCount = post.commentCount,
             colorHex = argbToHex(post.placeholderColorArgb),
+        )
+    }
+
+    /**
+     * Mapped copy of the shared comments for [postId], safe to consume from
+     * Swift. Empty list when the post has no comments (drives the empty state).
+     */
+    fun comments(postId: String): List<IosComment> =
+        SampleData.commentsFor(postId).map { comment ->
+            IosComment(
+                id = comment.id,
+                authorName = comment.authorName,
+                timeLabel = comment.timeLabel,
+                text = comment.text,
+            )
+        }
+
+    /** Mapped copy of the shared report reasons, safe to consume from Swift. */
+    fun reportReasons(): List<IosReportReason> = SampleData.reportReasons.map { reason ->
+        IosReportReason(
+            key = reason.key,
+            label = reason.label,
         )
     }
 

@@ -32,6 +32,33 @@ data class Post(
     val placeholderColorArgb: Long,
 )
 
+/**
+ * A comment attached to a [Post] (by [postId]).
+ *
+ * Intentionally flat and minimal: no replies/threading, no author avatar beyond
+ * the name (the avatar initial is derived Swift-side). [timeLabel] is a
+ * pre-formatted German relative label (e.g. "vor 1 Std.").
+ */
+data class Comment(
+    val id: String,
+    val postId: String,
+    val authorName: String,
+    val timeLabel: String,
+    val text: String,
+)
+
+/**
+ * A selectable reason for reporting a post.
+ *
+ * Flat and minimal so it can cross the Kotlin<->Swift boundary unchanged:
+ * [key] is a stable machine id (e.g. "spam") used by future reporting logic;
+ * [label] is the German display string shown in the report sheet.
+ */
+data class ReportReason(
+    val key: String,
+    val label: String,
+)
+
 /** A static filter chip definition for the map screen. */
 data class FilterChipItem(
     val label: String,

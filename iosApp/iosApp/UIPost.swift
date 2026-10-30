@@ -20,6 +20,10 @@ enum AppColor {
     static let hairline = Color(hex: "#F0EDE8")
     static let navInactive = Color(hex: "#9E9A94")
     static let bodyText = Color(hex: "#3D3D3A")
+    /// Red used for destructive actions (e.g. the "Report senden" button).
+    /// Mirrors the legacy report button color (#DC2626). This enum is the only
+    /// place `Color(hex:)` literals legitimately live.
+    static let destructive = Color(hex: "#DC2626")
 
     /// Translucent white used by the frosted floating surfaces on the map
     /// (search bar, control stack). Mirrors AppColors.frost (ARGB 0xE6FFFFFF).
@@ -108,14 +112,71 @@ struct UIFilterChip: Identifiable {
     }
 }
 
+// MARK: - UIComment (Swift mirror of Kotlin IosComment)
+
+/// Swift-side value type for a comment. Built from the bridged `IosComment`
+/// returned by `FeedBridge.shared.comments(postId:)`. The shared module is the
+/// single source of truth for comments (no Swift-only list). No replies.
+struct UIComment: Identifiable {
+    let id: String
+    let authorName: String
+    let timeLabel: String
+    let text: String
+
+    init(bridged: IosComment) {
+        self.id = bridged.id
+        self.authorName = bridged.authorName
+        self.timeLabel = bridged.timeLabel
+        self.text = bridged.text
+    }
+
+    /// Local-only initializer for optimistic, non-persisted comments typed in
+    /// the Comments sheet (never written back through the bridge).
+    init(id: String, authorName: String, timeLabel: String, text: String) {
+        self.id = id
+        self.authorName = authorName
+        self.timeLabel = timeLabel
+        self.text = text
+    }
+}
+
+// MARK: - UIReportReason (Swift mirror of Kotlin IosReportReason)
+
+/// Swift-side value type for a report reason. Built from the bridged
+/// `IosReportReason` returned by `FeedBridge.shared.reportReasons()`. The shared
+/// module is the single source of truth for the reason list (no Swift-only
+/// list). `key` is the stable machine id; `label` is the German display string.
+struct UIReportReason: Identifiable {
+    let key: String
+    let label: String
+    var id: String { key }
+
+    init(bridged: IosReportReason) {
+        self.key = bridged.key
+        self.label = bridged.label
+    }
+}
+
 enum FeedData {
     /// Pull the bridged posts from the shared framework and map to `UIPost`.
     static func posts() -> [UIPost] {
         FeedBridge.shared.posts().map { UIPost(bridged: $0) }
     }
 
+    /// Pull the bridged report reasons from the shared framework. Single source
+    /// of truth for the report sheet's selectable reasons.
+    static func reportReasons() -> [UIReportReason] {
+        FeedBridge.shared.reportReasons().map { UIReportReason(bridged: $0) }
+    }
+
     /// Pull the bridged map filter chips from the shared framework.
     static func mapFilters() -> [UIFilterChip] {
         FeedBridge.shared.mapFilters().map { UIFilterChip(bridged: $0) }
+    }
+
+    /// Pull the bridged comments for a post from the shared framework. Empty
+    /// when the post has no comments (drives the Comments sheet empty state).
+    static func comments(postId: String) -> [UIComment] {
+        FeedBridge.shared.comments(postId: postId).map { UIComment(bridged: $0) }
     }
 }

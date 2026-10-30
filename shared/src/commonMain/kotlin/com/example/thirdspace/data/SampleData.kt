@@ -136,6 +136,91 @@ object SampleData {
         ),
     )
 
+    /**
+     * Sample comments keyed by [Comment.postId].
+     *
+     * NOTE (documented trade-off): this list is independent of the [Post.commentCount]
+     * STORED field. The feed still shows the original `commentCount` numbers
+     * (12/3/7/56/9/2); the Comments sheet header shows the count of LOADED
+     * comments from this list. They are intentionally NOT kept in sync — the
+     * feed count is a stored stat, not derived from loaded comments.
+     *
+     * Coverage: post-1 (2), post-3 (3), post-4 (4) have comments; post-2,
+     * post-5, post-6 have none, to exercise the empty state.
+     */
+    val comments: List<Comment> = listOf(
+        // post-1
+        Comment(
+            id = "comment-1",
+            postId = "post-1",
+            authorName = "Max Becker",
+            timeLabel = "vor 1 Std.",
+            text = "Kann ich nur bestätigen, war gestern da. Unbedingt die Brezn probieren!",
+        ),
+        Comment(
+            id = "comment-2",
+            postId = "post-1",
+            authorName = "Sophie Wagner",
+            timeLabel = "vor 45 Min.",
+            text = "Schön, aber am Wochenende leider komplett überlaufen.",
+        ),
+        // post-3
+        Comment(
+            id = "comment-3",
+            postId = "post-3",
+            authorName = "Jonas Richter",
+            timeLabel = "vor 20 Std.",
+            text = "Der beste Flat White im Kiez, da stimme ich voll zu.",
+        ),
+        Comment(
+            id = "comment-4",
+            postId = "post-3",
+            authorName = "Amira Hassan",
+            timeLabel = "vor 18 Std.",
+            text = "Die Bohnen kann man auch mitnehmen, super Qualität.",
+        ),
+        Comment(
+            id = "comment-5",
+            postId = "post-3",
+            authorName = "Tobias Krüger",
+            timeLabel = "gestern",
+            text = "Etwas eng drinnen, aber der Kaffee macht das mehr als wett.",
+        ),
+        // post-4
+        Comment(
+            id = "comment-6",
+            postId = "post-4",
+            authorName = "Lena Fischer",
+            timeLabel = "vor 1 Tag",
+            text = "Dieser Sonnenuntergang ist einfach unschlagbar.",
+        ),
+        Comment(
+            id = "comment-7",
+            postId = "post-4",
+            authorName = "Max Becker",
+            timeLabel = "vor 1 Tag",
+            text = "Früh kommen lohnt sich, die Schlange wird abends lang.",
+        ),
+        Comment(
+            id = "comment-8",
+            postId = "post-4",
+            authorName = "Sophie Wagner",
+            timeLabel = "vor 22 Std.",
+            text = "Getränkepreise sind okay für die Aussicht.",
+        ),
+        Comment(
+            id = "comment-9",
+            postId = "post-4",
+            authorName = "Amira Hassan",
+            timeLabel = "vor 12 Std.",
+            text = "Nehmt eine Jacke mit, oben wird es windig.",
+        ),
+    )
+
+    /** Comments for a given post id, in list order. Empty if the post has none. */
+    fun commentsFor(postId: String): List<Comment> =
+        comments.filter { it.postId == postId }
+
     /** Filter chips for the map; "Meine Pins" is statically active. */
     val mapFilters: List<FilterChipItem> = listOf(
         FilterChipItem("Meine Pins", active = true),
@@ -147,6 +232,19 @@ object SampleData {
         FilterChipItem("Verifiziert", active = false),
         FilterChipItem("Freunde", active = false),
         FilterChipItem("Gespeichert", active = false),
+    )
+
+    /**
+     * Report reasons shown in the native "Melden" (report) sheet, in display
+     * order. Single source of truth for both platforms: keys are stable machine
+     * ids for future reporting logic; labels are the authentic German strings.
+     */
+    val reportReasons: List<ReportReason> = listOf(
+        ReportReason("spam", "Spam"),
+        ReportReason("harassment", "Belästigung"),
+        ReportReason("inappropriate", "Unangemessener Inhalt"),
+        ReportReason("wrong_location", "Falsche Ortsangabe"),
+        ReportReason("other", "Sonstiges"),
     )
 
     /** Bottom navigation items (authoritative: Posts, Map, Discover). */

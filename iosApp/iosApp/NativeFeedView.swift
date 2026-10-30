@@ -26,6 +26,7 @@ import SwiftUI
 struct NativeFeedView: View {
     @State private var posts: [UIPost] = FeedData.posts()
     @State private var selectedPost: UIPost?
+    @State private var showCreate = false
 
     var body: some View {
         List {
@@ -65,6 +66,13 @@ struct NativeFeedView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        // CreatePost sheet, triggered from the header compose button. Same
+        // sheet pattern: presenter sets detents + drag indicator.
+        .sheet(isPresented: $showCreate) {
+            CreatePostView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: Refresh scaffold
@@ -98,6 +106,14 @@ struct NativeFeedView: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 18))
                         .foregroundColor(AppColor.foreground)
+                    Button {
+                        showCreate = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                            .font(.system(size: 18))
+                            .foregroundColor(AppColor.foreground)
+                    }
+                    .buttonStyle(.plain)
                     Image(systemName: "bell")
                         .font(.system(size: 18))
                         .foregroundColor(AppColor.foreground)
