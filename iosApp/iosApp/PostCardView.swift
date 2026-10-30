@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Sections (top to bottom):
 /// 1. Spot header: bold spot name + optional purple verified check, meta line,
-///    right-side more (…) and bookmark icons.
+///    right-side bookmark icon.
 /// 2. Square 1:1 colored placeholder (no images).
 /// 3. Attribution: round avatar with initial (orange bg) + "Name · date",
 ///    optional post text wrapped in „…".
@@ -13,15 +13,12 @@ import SwiftUI
 ///
 /// Visual parity with the Compose card is approximate (fonts/spacing).
 struct PostCardView: View {
+    @Environment(Localization.self) private var loc
     let post: UIPost
     /// Optional tap callback. Defaults to `nil` so existing call sites and
     /// previews compile unchanged; `NativeFeedView` passes a closure to present
     /// the spot detail sheet.
     var onTap: (() -> Void)? = nil
-
-    /// Drives the report ("Melden") sheet opened from the ellipsis menu. Local
-    /// to each card so it works in the `List`-based feed without lifting state.
-    @State private var showReport = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,13 +39,6 @@ struct PostCardView: View {
         .padding(.bottom, 24)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
-        // Report sheet. Follows the project sheet pattern: the presenter sets
-        // detents + drag indicator. Opened from the ellipsis Menu below.
-        .sheet(isPresented: $showReport) {
-            ReportSheetView(post: post)
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-        }
     }
 
     // MARK: 1. Spot header
@@ -67,7 +57,7 @@ struct PostCardView: View {
                             .foregroundColor(AppColor.secondary)
                     }
                 }
-                Text("\(post.category) · \(post.neighborhood) · \(post.checkInCount) \(post.checkInLabel)")
+                Text("\(post.category) · \(post.neighborhood) · \(post.checkInCount) \(loc.strings.checkInLabel(count: Int32(post.checkInCount)))")
                     .font(.system(size: 12))
                     .foregroundColor(AppColor.mutedForeground)
             }
@@ -75,24 +65,6 @@ struct PostCardView: View {
             Spacer(minLength: 8)
 
             HStack(spacing: 12) {
-                // Interactive overflow menu. A `Menu`/`Button` consumes its own
-                // tap, so tapping the ellipsis opens the menu WITHOUT also
-                // firing the card's `.onTapGesture` (which opens the SpotSheet).
-                Menu {
-                    Button {
-                        showReport = true
-                    } label: {
-                        Label("Melden", systemImage: "flag")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 15))
-                        .foregroundColor(AppColor.textFaint)
-                        // Enlarge the hit target without changing the visual.
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
                 Image(systemName: "bookmark")
                     .font(.system(size: 17))
                     .foregroundColor(AppColor.foreground)

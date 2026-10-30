@@ -27,11 +27,16 @@ import SwiftUI
 /// There is no vote/save/comment/route/share logic, no sub-sheets, no photo
 /// strip, and no "posts about this spot" section.
 struct SpotSheetView: View {
+    @Environment(Localization.self) private var loc
     let post: UIPost
 
     /// Drives the nested Comments sheet. Presenting a sheet from within a sheet
     /// is intended here — the comment button opens the comments list.
     @State private var showComments = false
+
+    /// Drives the nested Report ("Melden") sheet, opened from the share/report
+    /// row below. Mirrors the comments sheet pattern.
+    @State private var showReport = false
 
     var body: some View {
         ScrollView {
@@ -43,7 +48,7 @@ struct SpotSheetView: View {
                 description
                 actionRow
                 commentButton
-                shareButton
+                shareAndReportRow
             }
             .padding(.horizontal, 16)
             // Top padding so the content sits below the sheet's drag indicator.
@@ -56,6 +61,13 @@ struct SpotSheetView: View {
         .sheet(isPresented: $showComments) {
             CommentsSheetView(post: post)
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        // Nested Report sheet. Same project sheet pattern as comments; opened
+        // from the "Melden" button in the share/report row.
+        .sheet(isPresented: $showReport) {
+            ReportSheetView(post: post)
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -120,7 +132,7 @@ struct SpotSheetView: View {
 
     // Placeholder: UIPost has no description field yet (V1).
     private var description: some View {
-        Text("Noch keine Beschreibung vorhanden.")
+        Text(loc.strings.spotNoDescription)
             .font(.system(size: 14))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
@@ -132,19 +144,19 @@ struct SpotSheetView: View {
         HStack(spacing: 10) {
             SheetActionButton(
                 icon: "arrow.triangle.turn.up.right.diamond",
-                label: "Route",
+                label: loc.strings.actionRoute,
                 style: .bordered,
                 action: {}
             )
             SheetActionButton(
                 icon: "bookmark",
-                label: "Speichern",
+                label: loc.strings.actionSave,
                 style: .bordered,
                 action: {}
             )
             SheetActionButton(
                 icon: "checkmark",
-                label: "Ich war hier",
+                label: loc.strings.actionWasHere,
                 style: .primary,
                 action: {}
             )
@@ -158,20 +170,85 @@ struct SpotSheetView: View {
         SheetWideButton(
             icon: "bubble.left",
             label: post.commentCount > 0
-                ? "Alle \(post.commentCount) Kommentare anzeigen"
-                : "Kommentar schreiben",
+                ? loc.strings.showAllComments(count: Int32(post.commentCount))
+                : loc.strings.writeComment,
             action: { showComments = true }
         )
     }
 
-    // MARK: 8. Share button
+    // MARK: 8. Share + Report row
 
-    private var shareButton: some View {
-        SheetWideButton(
-            icon: "square.and.arrow.up",
-            label: "Teilen",
-            action: {}
-        )
+    /// Bottom row: a wider "Teilen" control (left) that triggers Apple's native
+    /// share sheet via `ShareLink`, and a narrower "Melden" button (right) that
+    /// opens the Report sheet. The comment button above remains its own
+    /// full-width row.
+    private var shareAndReportRow: some View {
+        HStack(spacing: 10) {
+            reportButton
+
+            shareControl
+                .layoutPriority(1) // give share the extra horizontal weight
+        }
+    }
+
+    /// Native share sheet via `ShareLink` (iOS 16+). The payload is an
+    /// intentional STATIC placeholder — a fixed URL plus the spot name — not a
+    /// real deep link. The custom label mirrors `SheetWideButton` styling so it
+    /// fits visually with the surrounding bordered sheet buttons.
+    private var shareControl: some View {
+        ShareLink(
+            item: URL(string: "https://thirdspace.app")!,
+            subject: Text(post.spotName),
+            message: Text(loc.strings.shareMessage(spotName: post.spotName))
+        ) {
+            HStack(spacing: 8) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                Text(loc.strings.share)
+                    .font(.system(size: 14, weight: .semibold))
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: Self.shareReportRowHeight)
+            .foregroundColor(AppColor.foreground)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(AppColor.surface)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: 1)
+            )
+        }
+    }
+
+    /// Shared height for both controls in `shareAndReportRow` so the compact
+    /// report button and the wide share control line up at an identical height.
+    private static let shareReportRowHeight: CGFloat = 48
+
+    /// Compact icon-only bordered report button opening the Report sheet. It is
+    /// a square sized to `shareReportRowHeight`, so it matches the share
+    /// control's height exactly. The flag is tinted with `AppColor.destructive`
+    /// to signal a report action and centered within the square frame.
+    private var reportButton: some View {
+        Button {
+            showReport = true
+        } label: {
+            Image(systemName: "flag")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(AppColor.destructive)
+                .frame(width: Self.shareReportRowHeight, height: Self.shareReportRowHeight)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(AppColor.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(AppColor.border, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(loc.strings.report)
     }
 }
 

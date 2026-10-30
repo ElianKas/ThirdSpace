@@ -24,9 +24,11 @@ import SwiftUI
 /// There is no real backend: `refresh()` waits briefly, then re-reads the static
 /// bridge `FeedData.posts()`.
 struct NativeFeedView: View {
+    @Environment(Localization.self) private var loc
     @State private var posts: [UIPost] = FeedData.posts()
     @State private var selectedPost: UIPost?
     @State private var showCreate = false
+    @State private var showProfile = false
 
     var body: some View {
         List {
@@ -73,6 +75,13 @@ struct NativeFeedView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        // Profile sheet, triggered from the header avatar. Same sheet pattern:
+        // presenter sets detents + drag indicator.
+        .sheet(isPresented: $showProfile) {
+            ProfileView()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: Refresh scaffold
@@ -91,11 +100,11 @@ struct NativeFeedView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("POSTS")
+                    Text(loc.strings.feedEyebrow)
                         .font(.system(size: 11, weight: .semibold))
                         .tracking(1.2)
                         .foregroundColor(AppColor.textFaint)
-                    Text("Feed")
+                    Text(loc.strings.feedTitle)
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(AppColor.foreground)
                 }
@@ -117,7 +126,12 @@ struct NativeFeedView: View {
                     Image(systemName: "bell")
                         .font(.system(size: 18))
                         .foregroundColor(AppColor.foreground)
-                    AvatarView(name: "Du", size: 32)
+                    Button {
+                        showProfile = true
+                    } label: {
+                        AvatarView(name: "Du", size: 32)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, 20)

@@ -72,11 +72,6 @@ struct UIPost: Identifiable {
     let commentCount: Int
     let colorHex: String      // "#RRGGBB"
 
-    /// German check-in label mirroring PostCard.kt ("war hier" / "waren hier").
-    var checkInLabel: String {
-        checkInCount == 1 ? "war hier" : "waren hier"
-    }
-
     var hasText: Bool { !text.isEmpty }
 
     init(bridged: IosPost) {
@@ -103,10 +98,15 @@ struct UIPost: Identifiable {
 /// module is the single source of truth for the chip list (no Swift-only list).
 struct UIFilterChip: Identifiable {
     let id = UUID()
+    /// Stable machine key (e.g. "chip_cafes"). The shared module owns the
+    /// chip order + active flags; the `label` is already localized by the
+    /// bridge for the current language.
+    let key: String
     let label: String
     let active: Bool
 
     init(bridged: IosFilterChip) {
+        self.key = bridged.key
         self.label = bridged.label
         self.active = bridged.active
     }
@@ -157,10 +157,48 @@ struct UIReportReason: Identifiable {
     }
 }
 
+// MARK: - UIProfile (Swift mirror of Kotlin IosProfile)
+
+/// Swift-side value type for the current user's own profile. Built from the
+/// bridged `IosProfile` returned by `FeedBridge.shared.profile()`. The shared
+/// module is the single source of truth for the profile (no Swift-only data).
+/// There is no avatar field — the avatar initial is derived Swift-side from
+/// `name` via `AvatarView`. `monthYear` stays as-is; the localized
+/// "seit"/"since" prefix is applied in the view via `loc.strings.joinedSince`.
+struct UIProfile {
+    let name: String
+    let username: String
+    let city: String
+    let monthYear: String
+    let bio: String
+    let spotCount: Int
+    let postCount: Int
+    let followerCount: Int
+    let followingCount: Int
+
+    init(bridged: IosProfile) {
+        self.name = bridged.name
+        self.username = bridged.username
+        self.city = bridged.city
+        self.monthYear = bridged.monthYear
+        self.bio = bridged.bio
+        self.spotCount = Int(bridged.spotCount)
+        self.postCount = Int(bridged.postCount)
+        self.followerCount = Int(bridged.followerCount)
+        self.followingCount = Int(bridged.followingCount)
+    }
+}
+
 enum FeedData {
     /// Pull the bridged posts from the shared framework and map to `UIPost`.
     static func posts() -> [UIPost] {
         FeedBridge.shared.posts().map { UIPost(bridged: $0) }
+    }
+
+    /// Pull the bridged current-user profile from the shared framework. Single
+    /// source of truth for the profile screen.
+    static func profile() -> UIProfile {
+        UIProfile(bridged: FeedBridge.shared.profile())
     }
 
     /// Pull the bridged report reasons from the shared framework. Single source

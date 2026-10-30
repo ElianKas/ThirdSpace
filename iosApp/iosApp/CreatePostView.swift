@@ -18,6 +18,7 @@ import SwiftUI
 /// Everything is visual/local: no upload, no persistence, no bridge write.
 /// Styling uses only `AppColor` tokens and the hoisted shared components.
 struct CreatePostView: View {
+    @Environment(Localization.self) private var loc
     /// Optional close handler from the presenter. Falls back to the environment
     /// dismiss so the view also works when presented without an explicit one.
     var onClose: (() -> Void)? = nil
@@ -33,7 +34,7 @@ struct CreatePostView: View {
 
     var body: some View {
         ScrollView {
-            SheetScaffold(title: "Ich war hier", onClose: closeAction) {
+            SheetScaffold(title: loc.strings.createTitle, onClose: closeAction) {
                 VStack(alignment: .leading, spacing: 20) {
                     subtitle
                     spotSection
@@ -50,7 +51,7 @@ struct CreatePostView: View {
     // MARK: Subtitle
 
     private var subtitle: some View {
-        Text("Teile einen Spot mit deiner Community.")
+        Text(loc.strings.createSubtitle)
             .font(.system(size: 14))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
@@ -66,7 +67,7 @@ struct CreatePostView: View {
 
     private var spotSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Spot")
+            Text(loc.strings.createSpotLabel)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
@@ -107,7 +108,7 @@ struct CreatePostView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 14))
                 .foregroundColor(AppColor.textFaint)
-            TextField("Spot suchen…", text: $searchText)
+            TextField(loc.strings.createSpotSearch, text: $searchText)
                 .font(.system(size: 14))
                 .foregroundColor(AppColor.foreground)
         }
@@ -180,13 +181,13 @@ struct CreatePostView: View {
 
     private var captionSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Dein Text")
+            Text(loc.strings.createTextLabel)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
             ZStack(alignment: .topLeading) {
                 if caption.isEmpty {
-                    Text("Schreib was über diesen Ort…")
+                    Text(loc.strings.createCaptionPlaceholder)
                         .font(.system(size: 14))
                         .foregroundColor(AppColor.textFaint)
                         .padding(.horizontal, 14)
@@ -219,7 +220,7 @@ struct CreatePostView: View {
                 Image(systemName: "photo.badge.plus")
                     .font(.system(size: 18))
                     .foregroundColor(AppColor.mutedForeground)
-                Text("Foto hinzufügen")
+                Text(loc.strings.createAddPhoto)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(AppColor.mutedForeground)
                 Spacer(minLength: 0)
@@ -246,13 +247,13 @@ struct CreatePostView: View {
 
     private var visibilitySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Sichtbarkeit")
+            Text(loc.strings.createVisibility)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
             HStack(spacing: 10) {
-                visibilityOption(.publicEveryone, icon: "globe", label: "Öffentlich")
-                visibilityOption(.friends, icon: "person.2", label: "Freunde")
+                visibilityOption(.publicEveryone, icon: "globe", label: loc.strings.visibilityPublic)
+                visibilityOption(.friends, icon: "person.2", label: loc.strings.visibilityFriends)
             }
         }
     }
@@ -292,7 +293,7 @@ struct CreatePostView: View {
     private var postButton: some View {
         SheetActionButton(
             icon: "paperplane.fill",
-            label: "Posten",
+            label: loc.strings.createPost,
             style: .primary,
             action: closeAction
         )

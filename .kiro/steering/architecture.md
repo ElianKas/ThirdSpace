@@ -32,4 +32,4 @@ This document records the long-lived architecture, module boundaries, and native
 
 ## Verification
 
-Automated/technical verification is governed by `verification-strategy.md`. In short, iOS builds are verified by the developer in Xcode, and this environment has no automated iOS build.
+Automated/technical verification is governed by `verification-strategy.md`. iOS simulator Debug builds ARE runnable in this environment via `xcodebuild` and should be used to verify iOS/Swift changes; visual/layout QA remains the developer's responsibility.

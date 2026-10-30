@@ -221,17 +221,24 @@ object SampleData {
     fun commentsFor(postId: String): List<Comment> =
         comments.filter { it.postId == postId }
 
-    /** Filter chips for the map; "Meine Pins" is statically active. */
+    /**
+     * Filter chips for the map; "Meine Pins" is statically active.
+     *
+     * This list owns the chip ORDER and the active flags. Each entry carries a
+     * stable [FilterChipItem.key]; the localized display label is resolved from
+     * the i18n layer per current language (see FeedBridge.mapFilters), not
+     * stored here.
+     */
     val mapFilters: List<FilterChipItem> = listOf(
-        FilterChipItem("Meine Pins", active = true),
-        FilterChipItem("Alle", active = false),
-        FilterChipItem("Cafés", active = false),
-        FilterChipItem("Parks", active = false),
-        FilterChipItem("Bars", active = false),
-        FilterChipItem("Geheimtipps", active = false),
-        FilterChipItem("Verifiziert", active = false),
-        FilterChipItem("Freunde", active = false),
-        FilterChipItem("Gespeichert", active = false),
+        FilterChipItem("chip_my_pins", active = true),
+        FilterChipItem("chip_all", active = false),
+        FilterChipItem("chip_cafes", active = false),
+        FilterChipItem("chip_parks", active = false),
+        FilterChipItem("chip_bars", active = false),
+        FilterChipItem("chip_hidden", active = false),
+        FilterChipItem("chip_verified", active = false),
+        FilterChipItem("chip_friends", active = false),
+        FilterChipItem("chip_saved", active = false),
     )
 
     /**
@@ -245,6 +252,26 @@ object SampleData {
         ReportReason("inappropriate", "Unangemessener Inhalt"),
         ReportReason("wrong_location", "Falsche Ortsangabe"),
         ReportReason("other", "Sonstiges"),
+    )
+
+    /**
+     * The current user's own dummy profile for the profile screen.
+     *
+     * Dynamic content (name/username/city/bio/monthYear) is NOT translated.
+     * [postCount] mirrors [posts].size (6); the remaining counts are dummy
+     * display stats. [monthYear] is a neutral join month; the localized
+     * "seit"/"since" prefix is applied Swift-side via i18n.
+     */
+    val profile = Profile(
+        name = "Elian Kasteleiner",
+        username = "elian",
+        city = "Berlin",
+        monthYear = "März 2024",
+        bio = "Immer auf der Suche nach dem nächsten guten Kaffee und ruhigen Ecken in der Stadt.",
+        spotCount = 12,
+        postCount = posts.size,
+        followerCount = 184,
+        followingCount = 97,
     )
 
     /** Bottom navigation items (authoritative: Posts, Map, Discover). */

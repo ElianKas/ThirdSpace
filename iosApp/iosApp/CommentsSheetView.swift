@@ -16,6 +16,7 @@ import SwiftUI
 ///   user sees feedback. Nothing is persisted or written back through the
 ///   bridge. No replies/threading.
 struct CommentsSheetView: View {
+    @Environment(Localization.self) private var loc
     let post: UIPost
 
     /// Comments shown in the list. Seeded from the bridge, then locally appended
@@ -56,7 +57,7 @@ struct CommentsSheetView: View {
     // MARK: Header
 
     private var header: some View {
-        Text("Kommentare · \(comments.count)")
+        Text(loc.strings.commentsHeader(count: Int32(comments.count)))
             .font(.system(size: 20, weight: .bold))
             .foregroundColor(AppColor.foreground)
     }
@@ -83,7 +84,7 @@ struct CommentsSheetView: View {
             Image(systemName: "bubble.left")
                 .font(.system(size: 28))
                 .foregroundColor(AppColor.textFaint)
-            Text("Noch keine Kommentare. Sei die erste Person.")
+            Text(loc.strings.commentsEmpty)
                 .font(.system(size: 14))
                 .foregroundColor(AppColor.mutedForeground)
                 .multilineTextAlignment(.center)
@@ -96,7 +97,7 @@ struct CommentsSheetView: View {
 
     private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 10) {
-            TextField("Kommentar schreiben…", text: $draft, axis: .vertical)
+            TextField(loc.strings.commentPlaceholder, text: $draft, axis: .vertical)
                 .font(.system(size: 14))
                 .foregroundColor(AppColor.foreground)
                 .lineLimit(1...4)
@@ -143,8 +144,8 @@ struct CommentsSheetView: View {
         guard !trimmed.isEmpty else { return }
         let new = UIComment(
             id: "local-\(UUID().uuidString)",
-            authorName: "Du",
-            timeLabel: "gerade eben",
+            authorName: loc.strings.localAuthorYou,
+            timeLabel: loc.strings.justNow,
             text: trimmed
         )
         comments.append(new)

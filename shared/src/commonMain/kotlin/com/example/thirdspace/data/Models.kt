@@ -59,10 +59,43 @@ data class ReportReason(
     val label: String,
 )
 
-/** A static filter chip definition for the map screen. */
+/**
+ * A static filter chip definition for the map screen.
+ *
+ * [key] is a stable machine id (e.g. "chip_cafes") used to resolve the
+ * localized label via the i18n layer; [active] preserves the statically-active
+ * chip. The display label is NOT stored here — it comes from the current
+ * language's string table (see FeedBridge.mapFilters).
+ */
 data class FilterChipItem(
-    val label: String,
+    val key: String,
     val active: Boolean,
+)
+
+/**
+ * The current user's own profile (static dummy data for the profile screen).
+ *
+ * Intentionally flat and minimal so it can cross the Kotlin<->Swift boundary
+ * unchanged (String / Int only; see IosProfile). There is no avatar field —
+ * the avatar initial is derived Swift-side from [name], matching the comment
+ * and feed-avatar convention.
+ *
+ * [monthYear] is a neutral, NON-translated dummy join month (e.g. "März 2024").
+ * The localized "seit"/"since" prefix is applied separately via
+ * [com.example.thirdspace.i18n.Strings.joinedSince]. All other fields
+ * ([name], [username], [city], [bio]) are dynamic content and are NOT
+ * translated; the counts are plain display stats.
+ */
+data class Profile(
+    val name: String,
+    val username: String,
+    val city: String,
+    val monthYear: String,
+    val bio: String,
+    val spotCount: Int,
+    val postCount: Int,
+    val followerCount: Int,
+    val followingCount: Int,
 )
 
 /** A bottom navigation destination. */

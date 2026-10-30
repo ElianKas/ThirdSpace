@@ -13,6 +13,7 @@ import SwiftUI
 ///
 /// Every control is a no-op (UI only).
 struct MapBaseView: View {
+    @Environment(Localization.self) private var loc
     private let filters: [UIFilterChip] = FeedData.mapFilters()
 
     var body: some View {
@@ -20,7 +21,7 @@ struct MapBaseView: View {
             // Placeholder map area
             AppColor.page.ignoresSafeArea()
 
-            Text("Karte folgt")
+            Text(loc.strings.mapPlaceholder)
                 .font(.system(size: 15))
                 .foregroundColor(AppColor.textFaint)
 
@@ -64,7 +65,7 @@ struct MapBaseView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 16))
                 .foregroundColor(AppColor.mutedForeground)
-            Text("Ort oder Adresse suchen")
+            Text(loc.strings.mapSearchPlaceholder)
                 .font(.system(size: 15))
                 .foregroundColor(AppColor.textFaint)
             Spacer(minLength: 8)

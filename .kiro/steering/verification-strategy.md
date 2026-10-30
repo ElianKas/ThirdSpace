@@ -99,6 +99,7 @@ Additional rules:
   `androidDeviceTest` source set and `connectedAndroidDeviceTest` task exist, but
   their execution depends on an available emulator/device, which is
   environment-dependent. Report as NOT verified when none is available.
-- **Shared unit-test coverage is currently minimal.** At the time of writing, the
-  only unit tests cover pure deterministic logic (score formatting). Most shared
-  code is Compose UI, which is not covered by these host/native unit tests.
+- **Shared unit tests cover the shared logic/data + i18n layer.** The shared module
+  is Compose-free (UI is native SwiftUI); current commonTest suites (e.g. score
+  formatting, comments, report reasons, i18n strings, profile) run on both the
+  Android host and the iOS simulator target. UI behavior itself is not unit-tested.

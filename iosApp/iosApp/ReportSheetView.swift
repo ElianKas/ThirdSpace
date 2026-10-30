@@ -18,6 +18,7 @@ import SwiftUI
 ///
 /// Visual/local only: no backend, no persistence. Uses `AppColor` tokens only.
 struct ReportSheetView: View {
+    @Environment(Localization.self) private var loc
     let post: UIPost
     /// Optional close handler. Falls back to the environment dismiss so the
     /// view works whether or not the presenter passes one.
@@ -76,7 +77,7 @@ struct ReportSheetView: View {
             Image(systemName: "flag")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(AppColor.destructive)
-            Text("Melden")
+            Text(loc.strings.reportTitle)
                 .font(.system(size: 20, weight: .bold))
                 .foregroundColor(AppColor.foreground)
             Spacer(minLength: 0)
@@ -86,7 +87,7 @@ struct ReportSheetView: View {
     // MARK: - Anonymity hint
 
     private var hint: some View {
-        Text("Wähle einen Grund. Reports sind anonym — die gemeldete Person sieht deinen Namen nicht.")
+        Text(loc.strings.reportHint)
             .font(.system(size: 13))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
@@ -99,6 +100,7 @@ struct ReportSheetView: View {
             ForEach(reasons) { reason in
                 ReportReasonRow(
                     label: reason.label,
+                    selectedLabel: loc.strings.reportSelected,
                     selected: selectedReasonKey == reason.key,
                     action: { selectedReasonKey = reason.key }
                 )
@@ -111,7 +113,7 @@ struct ReportSheetView: View {
     private var detailsEditor: some View {
         ZStack(alignment: .topLeading) {
             if details.isEmpty {
-                Text("Zusätzliche Details (optional)…")
+                Text(loc.strings.reportDetailsPlaceholder)
                     .font(.system(size: 14))
                     .foregroundColor(AppColor.textFaint)
                     .padding(.horizontal, 12)
@@ -143,7 +145,7 @@ struct ReportSheetView: View {
             // No-op for now (real reporting logic added later). Just dismiss.
             close()
         }) {
-            Text("Report senden")
+            Text(loc.strings.reportSubmit)
                 .font(.system(size: 15, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -166,6 +168,8 @@ struct ReportSheetView: View {
 /// Uses only `AppColor` tokens.
 private struct ReportReasonRow: View {
     let label: String
+    /// Localized "selected" marker text (e.g. "Ausgewählt" / "Selected").
+    let selectedLabel: String
     let selected: Bool
     let action: () -> Void
 
@@ -180,7 +184,7 @@ private struct ReportReasonRow: View {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 15))
-                        Text("Ausgewählt")
+                        Text(selectedLabel)
                             .font(.system(size: 12, weight: .semibold))
                     }
                     .foregroundColor(AppColor.brand)
