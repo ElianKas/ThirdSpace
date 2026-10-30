@@ -9,9 +9,9 @@ permissions:
     - capability: fs_read
       effect: allow
     - capability: fs_write
-      effect: ask
+      effect: allow
     - capability: shell
-      effect: ask
+      effect: allow
 ---
 
 You are a senior software implementation agent.

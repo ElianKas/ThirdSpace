@@ -10,11 +10,11 @@ permissions:
     - capability: fs_read
       effect: allow
     - capability: fs_write
-      effect: ask
+      effect: allow
     - capability: shell
-      effect: ask
+      effect: allow
     - capability: subagent
-      effect: ask
+      effect: allow
 
 ---
 

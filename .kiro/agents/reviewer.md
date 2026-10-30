@@ -11,7 +11,7 @@ permissions:
     - capability: fs_write
       effect: deny
     - capability: shell
-      effect: ask
+      effect: allow
 ---
 
 You are an independent senior code reviewer.

@@ -1,18 +1,9 @@
-import UIKit
 import SwiftUI
-import Shared
 
-struct ComposeView: UIViewControllerRepresentable {
-    func makeUIViewController(context: Self.Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Self.Context) {}
-}
-
+/// App root. The UI is now fully native SwiftUI; the Compose-Multiplatform
+/// entry points have been removed from the shared module.
 struct ContentView: View {
     var body: some View {
-        ComposeView()
-            .ignoresSafeArea()
+        RootTabView()
     }
 }
