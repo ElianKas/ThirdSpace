@@ -20,14 +20,21 @@ import SwiftUI
 /// later step that will be redesigned on top of this `List` (the reusable
 /// `ScrollOffsetTracking` helper is kept for it).
 ///
-/// The posts are held in local `@State` so the refresh scaffold can re-set them.
-/// There is no real backend: `refresh()` waits briefly, then re-reads the static
-/// bridge `FeedData.posts()`.
+/// The posts are held in local `@State`, seeded cache-first from the shared
+/// `FeedData.posts()` (never blank offline). On appear and on pull-to-refresh
+/// the view calls `FeedData.loadFeed { … }` to kick off a background remote
+/// refresh and re-reads `posts` when it completes; a `FeedData.observeFeed`
+/// listener (registered once) re-reads `posts` live when a late-arriving remote
+/// result updates the shared cache. All bridge completions/listeners are
+/// delivered on the main thread, so mutating `@State` in them is safe.
 struct NativeFeedView: View {
     @Environment(Localization.self) private var loc
     @State private var posts: [UIPost] = FeedData.posts()
     @State private var selectedPost: UIPost?
     @State private var showCreate = false
+    /// Guards `observeFeed` registration so the long-lived listener is wired
+    /// exactly once per view lifetime (mirrors other once-registered observers).
+    @State private var didRegisterObserver = false
 
     var body: some View {
         List {
@@ -59,6 +66,7 @@ struct NativeFeedView: View {
         .scrollContentBackground(.hidden)             // hide default list background
         .background(AppColor.background)
         .refreshable { await refresh() }              // native system pull-to-refresh
+        .onAppear(perform: onAppear)                  // first-load + observe registration
         // Spot detail sheet. Driven by an Identifiable @State item; this is the
         // reusable sheet pattern future surfaces (CreatePost, Comments, AddSpot)
         // should follow. See SpotSheetView's doc comment.
@@ -76,14 +84,33 @@ struct NativeFeedView: View {
         }
     }
 
-    // MARK: Refresh scaffold
+    // MARK: Load / refresh
 
-    /// Placeholder refresh hook. Real data loading comes later; for now it waits
-    /// a short, artificial delay and re-reads the static bridge so the spinner
-    /// has something to show.
+    /// First appearance: kick off a remote refresh (cache shows instantly, the
+    /// remote result updates `posts` when it lands) and register the live
+    /// change observer exactly once.
+    private func onAppear() {
+        FeedData.loadFeed { posts = FeedData.posts() }
+
+        guard !didRegisterObserver else { return }
+        didRegisterObserver = true
+        // Re-read from the shared cache whenever a background refresh/flush
+        // changes it. The bridge delivers on the main thread, so the `@State`
+        // mutation is safe; we touch only the value path, never `self`.
+        FeedData.observeFeed { posts = FeedData.posts() }
+    }
+
+    /// Native pull-to-refresh: trigger a real background remote refresh via the
+    /// flat bridge and re-read `posts` once the refresh kick-off completes.
+    /// Bridges the escaping completion into the async `refreshable` with a
+    /// continuation so the spinner stays until the completion fires on main.
     private func refresh() async {
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s
-        posts = FeedData.posts()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            FeedData.loadFeed {
+                posts = FeedData.posts()
+                continuation.resume()
+            }
+        }
     }
 
     // MARK: Header

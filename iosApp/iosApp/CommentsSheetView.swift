@@ -12,15 +12,17 @@ import SwiftUI
 /// - Scrollable list of `CommentRow` from `FeedData.comments(postId:)`, or an
 ///   empty state when there are none.
 /// - A bottom input row: an app-styled text field + a round primary send button.
-///   Sending is OPTIMISTIC and LOCAL ONLY — it appends to local `@State` so the
-///   user sees feedback. Nothing is persisted or written back through the
-///   bridge. No replies/threading.
+///   Sending PERSISTS through the shared bridge: `FeedData.addComment(...)` does
+///   an optimistic write-through + offline queue shared-side, and the view
+///   re-reads `FeedData.comments(postId:)` in the completion so the new comment
+///   shows immediately (and persists / queues when offline). No replies/threading.
 struct CommentsSheetView: View {
     @Environment(Localization.self) private var loc
     let post: UIPost
 
-    /// Comments shown in the list. Seeded from the bridge, then locally appended
-    /// to by the input row (optimistic, non-persisted).
+    /// Comments shown in the list. Seeded from the bridge, then re-read from the
+    /// bridge after each persisted send (shared layer does the optimistic
+    /// write-through + offline queue).
     @State private var comments: [UIComment] = []
     /// Draft text in the input field (local state).
     @State private var draft: String = ""
@@ -138,17 +140,16 @@ struct CommentsSheetView: View {
         didLoad = true
     }
 
-    /// Optimistic, local-only append. No persistence, no bridge write.
+    /// Persist via the shared bridge. The shared layer already does the
+    /// optimistic write-through + offline queue, so we clear the draft and
+    /// re-read the bridge in the completion (on the main thread) to surface the
+    /// new comment immediately. No Swift-only local append (avoids de-dup).
     private func send() {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        let new = UIComment(
-            id: "local-\(UUID().uuidString)",
-            authorName: loc.strings.localAuthorYou,
-            timeLabel: loc.strings.justNow,
-            text: trimmed
-        )
-        comments.append(new)
         draft = ""
+        FeedData.addComment(postId: post.id, text: trimmed) {
+            comments = FeedData.comments(postId: post.id)
+        }
     }
 }

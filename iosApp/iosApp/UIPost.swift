@@ -282,6 +282,27 @@ enum FeedData {
         FeedBridge.shared.comments(postId: postId).map { UIComment(bridged: $0) }
     }
 
+    /// Kick off a background remote refresh of the feed. The flat `completion`
+    /// fires on the MAIN thread once the refresh is scheduled; callers re-read
+    /// `posts()` in/after it to pick up the (cache-first, then refreshed) data.
+    static func loadFeed(completion: @escaping () -> Void) {
+        FeedBridge.shared.loadFeed(completion: completion)
+    }
+
+    /// Register a flat listener invoked on the MAIN thread whenever the shared
+    /// feed cache changes from a background refresh/flush, so the UI can re-read
+    /// `posts()` / `comments(postId:)` live. Register once per view lifetime.
+    static func observeFeed(_ listener: @escaping () -> Void) {
+        FeedBridge.shared.observeFeed(listener: listener)
+    }
+
+    /// Persist a comment through the shared repository (optimistic write-through
+    /// + offline queue). The flat `completion` fires on the MAIN thread after the
+    /// shared write-through, so callers re-read `comments(postId:)` to show it.
+    static func addComment(postId: String, text: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.addComment(postId: postId, text: text, completion: completion)
+    }
+
     /// The fixed category labels (8 `SpotCategory` entries) from the shared
     /// bridge, in declaration order. The create-spot sheet renders its category
     /// pills from this list, so Swift never hardcodes the category list.

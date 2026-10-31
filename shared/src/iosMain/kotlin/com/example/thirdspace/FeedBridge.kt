@@ -2,13 +2,15 @@ package com.example.thirdspace
 
 import com.example.thirdspace.data.AuthRepository
 import com.example.thirdspace.data.AuthResult
+import com.example.thirdspace.data.Feed
+import com.example.thirdspace.data.RelativeTime
 import com.example.thirdspace.data.SampleData
 import com.example.thirdspace.data.Spot
 import com.example.thirdspace.data.SpotCategory
 import com.example.thirdspace.data.SpotMapping
 import com.example.thirdspace.data.Spots
 import com.example.thirdspace.data.SupabaseClientProvider
-import com.example.thirdspace.data.VoteState
+import com.example.thirdspace.data.currentEpochMillis
 import com.example.thirdspace.i18n.AppLanguage
 import com.example.thirdspace.i18n.AppStrings
 import com.example.thirdspace.i18n.Strings
@@ -431,7 +433,7 @@ object FeedBridge {
     // MARK: Supabase backend (Phase A — inert injection point)
 
     /**
-     * Flat injection point for the Supabase project [url] + anon [anonKey],
+     * Flat injection point for the Supabase project [url] + publishable [publishableKey],
      * called once from Swift at launch (reading Info.plist). Flat String/String
      * in, Unit out — no supabase-kt, Ktor, or coroutine type crosses the
      * boundary (they stay internal to the shared module per the architecture
@@ -441,8 +443,8 @@ object FeedBridge {
      * treats empty/placeholder values as "not configured" and builds no client.
      * No network call happens here; auth and persistence are Phases C/D.
      */
-    fun configureSupabase(url: String, anonKey: String) {
-        SupabaseClientProvider.configure(url, anonKey)
+    fun configureSupabase(url: String, publishableKey: String) {
+        SupabaseClientProvider.configure(url, publishableKey)
     }
 
     /**
@@ -604,28 +606,46 @@ object FeedBridge {
         )
     }
 
-    /** Mapped copy of the shared sample feed, safe to consume from Swift. */
-    fun posts(): List<IosPost> = SampleData.posts.map { post ->
-        val spot = post.spot
-        IosPost(
-            id = post.id,
-            spotName = spot.name,
-            category = spot.category,
-            neighborhood = spot.neighborhood,
-            verified = spot.verified,
-            checkInCount = spot.checkInCount,
-            authorName = post.authorName,
-            dateLabel = post.dateLabel,
-            text = post.text ?: "",
-            score = post.score,
-            voteState = when (post.myVote) {
-                VoteState.UP -> "UP"
-                VoteState.DOWN -> "DOWN"
-                VoteState.NONE -> "NONE"
-            },
-            commentCount = post.commentCount,
-            colorHex = argbToHex(post.placeholderColorArgb),
-        )
+    /**
+     * The feed, sourced from the shared offline-first [Feed.posts] repository
+     * (cache-first + background remote refresh), mapped to flat [IosPost].
+     *
+     * The [IosPost] output shape is UNCHANGED from the previous SampleData
+     * version. Phase B only swaps the SOURCE:
+     * - [IosPost.dateLabel] is now formatted SHARED-SIDE from the post's
+     *   created_at epoch via [RelativeTime.format] for the current language
+     *   (replacing SampleData's baked German labels). The epoch stays inside
+     *   the shared module; only the formatted String crosses the boundary.
+     * - [IosPost.colorHex] is the category's marker color from the shared
+     *   [SpotCategory] (the remote `post_feed` view carries no per-post
+     *   placeholder color; Swift never hardcodes a category color).
+     * - [IosPost.checkInCount] is 0 (the feed row does not carry a spot
+     *   check-in count; it was only ever a spot-detail stat).
+     * - [IosPost.voteState] comes from the post's flat my_vote string.
+     */
+    fun posts(): List<IosPost> {
+        val now = currentEpochMillis()
+        return Feed.posts.getPosts().map { post ->
+            IosPost(
+                id = post.id,
+                spotName = post.spotName,
+                category = post.category,
+                neighborhood = post.neighborhood,
+                verified = post.verified,
+                checkInCount = 0,
+                authorName = post.authorName,
+                dateLabel = RelativeTime.format(post.createdAtEpoch, now, currentLanguageCode),
+                text = post.text,
+                score = post.score,
+                voteState = when (post.myVote) {
+                    "UP" -> "UP"
+                    "DOWN" -> "DOWN"
+                    else -> "NONE"
+                },
+                commentCount = post.commentCount,
+                colorHex = SpotCategory.colorHexForLabel(post.category),
+            )
+        }
     }
 
     /**
@@ -745,6 +765,54 @@ object FeedBridge {
         }
     }
 
+    // MARK: Feed (Phase B — flat, callback-based)
+
+    /**
+     * Ask the shared repository to refresh the feed from the backend, invoking
+     * the flat [completion] on the MAIN THREAD once the refresh has been
+     * kicked off. FLAT: no args, plain closure; no suspend/supabase/SQLDelight
+     * type crosses. Mirrors [refreshSpots].
+     *
+     * Reading [Feed.posts].getPosts() kicks off the background remote
+     * refresh/replace-all; a live remote result also arrives via [observeFeed].
+     * Swift re-reads [posts] afterwards (e.g. on a pull-to-refresh).
+     */
+    fun loadFeed(completion: () -> Unit) {
+        Feed.posts.getPosts()
+        authScope.launch { completion() }
+    }
+
+    /**
+     * Observe feed/comment cache changes caused by a background remote refresh
+     * or a pending-comment flush. [listener] is invoked (no args) on the MAIN
+     * THREAD whenever the shared feed cache changes, so a SwiftUI view can
+     * re-read [posts] / [comments]. FLAT: no args, plain closure; no
+     * suspend/Flow/supabase/SQLDelight type crosses. Mirrors [observeSpots].
+     */
+    fun observeFeed(listener: () -> Unit) {
+        Feed.setChangeListener {
+            authScope.launch { listener() }
+        }
+    }
+
+    /**
+     * Add a comment with [text] to the post [postId] through the shared
+     * [Feed.comments] repository: an optimistic local write-through (shows at
+     * once) + an enqueue + a background remote push. The flat [completion] is
+     * invoked on the MAIN THREAD once the add has been scheduled, so Swift can
+     * re-read [comments]. FLAT: String args, plain closure; no
+     * suspend/supabase/SQLDelight type crosses.
+     *
+     * The optimistic author name is the current user's display name/email from
+     * [AuthRepository]; the author id (for the remote insert) likewise comes
+     * from the session. Offline / unconfigured / unauthenticated leaves the
+     * comment queued and never crashes.
+     */
+    fun addComment(postId: String, text: String, completion: () -> Unit) {
+        Feed.comments.addComment(postId, text)
+        authScope.launch { completion() }
+    }
+
     /**
      * Map a Mapbox POI's [maki] icon id and symbol [clazz] to a category label
      * (flat String in/out). Wired for Phase 4's POI-adopt prefill; exposed here
@@ -754,18 +822,24 @@ object FeedBridge {
         SpotCategory.categoryForMaki(maki, clazz)
 
     /**
-     * Mapped copy of the shared comments for [postId], safe to consume from
-     * Swift. Empty list when the post has no comments (drives the empty state).
+     * The comments for [postId], sourced from the shared offline-first
+     * [Feed.comments] repository (cache-first + background remote refresh),
+     * mapped to flat [IosComment]. Empty list when the post has no comments
+     * (drives the empty state). The [IosComment] output shape is UNCHANGED.
      */
-    fun comments(postId: String): List<IosComment> =
-        SampleData.commentsFor(postId).map { comment ->
+    fun comments(postId: String): List<IosComment> {
+        val now = currentEpochMillis()
+        return Feed.comments.getComments(postId).map { comment ->
             IosComment(
                 id = comment.id,
                 authorName = comment.authorName,
-                timeLabel = comment.timeLabel,
+                // Formatted shared-side from the comment's created_at epoch for
+                // the current language (replacing SampleData's baked labels).
+                timeLabel = RelativeTime.format(comment.createdAtEpoch, now, currentLanguageCode),
                 text = comment.text,
             )
         }
+    }
 
     /**
      * Shared report reasons with LOCALIZED labels for the current language.
@@ -829,15 +903,4 @@ object FeedBridge {
         else -> key
     }
 
-    /** Convert an ARGB Long (e.g. 0xFFE9B384) to a "#RRGGBB" string (alpha dropped). */
-    private fun argbToHex(argb: Long): String {
-        val rgb = (argb and 0xFFFFFF).toInt()
-        val r = (rgb shr 16) and 0xFF
-        val g = (rgb shr 8) and 0xFF
-        val b = rgb and 0xFF
-        return "#" + listOf(r, g, b).joinToString("") { component ->
-            val hex = component.toString(16).uppercase()
-            if (hex.length == 1) "0$hex" else hex
-        }
-    }
 }

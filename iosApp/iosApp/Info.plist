@@ -8,7 +8,7 @@
 	<string>$(MAPBOX_PUBLIC_TOKEN)</string>
 	<key>SupabaseURL</key>
 	<string>$(SUPABASE_URL)</string>
-	<key>SupabaseAnonKey</key>
-	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabasePublishableKey</key>
+	<string>$(SUPABASE_PUBLISHABLE_KEY)</string>
 </dict>
 </plist>

@@ -1,19 +1,19 @@
 // Supabase backend config (TEMPLATE — committed, no real secret).
 //
-// The app reads the Supabase project URL and the PUBLIC anon key at RUNTIME to
-// talk to the backend. The anon key is a PUBLIC client key — it is fine on the
-// device. NEVER put the secret service-role key here (it bypasses row-level
-// security); that key stays server-side only.
+// The app reads the Supabase project URL and the PUBLIC publishable key at
+// RUNTIME to talk to the backend. The publishable key is a PUBLIC client key —
+// it is fine on the device. NEVER put the secret service-role key here (it
+// bypasses row-level security); that key stays server-side only.
 //
 // SETUP (one time, per developer machine):
 //   1. Copy this file to iosApp/Supabase.xcconfig (same folder, drop ".template"):
 //        cp iosApp/Supabase.xcconfig.template iosApp/Supabase.xcconfig
-//   2. Replace the PLACEHOLDER values below with your real project URL + anon key
-//      (Supabase dashboard -> Project Settings -> API).
+//   2. Replace the PLACEHOLDER values below with your real project URL +
+//      publishable key (Supabase dashboard -> Project Settings -> API).
 //   3. The real iosApp/Supabase.xcconfig is gitignored — never commit real keys.
 //
 // Configuration/Config.xcconfig #includes iosApp/Supabase.xcconfig and the
-// values are surfaced into Info.plist as `SupabaseURL` and `SupabaseAnonKey`.
+// values are surfaced into Info.plist as `SupabaseURL` and `SupabasePublishableKey`.
 // iOSApp.swift reads them at launch and calls FeedBridge.configureSupabase(...).
 //
 // NOTE on the URL: xcconfig treats `//` as a comment, so a bare
@@ -24,4 +24,4 @@
 // Host only (no scheme) to avoid the xcconfig `//` comment pitfall. Swift
 // prepends "https://". e.g. abcdefghijkl.supabase.co
 SUPABASE_URL = PLACEHOLDER.supabase.co
-SUPABASE_ANON_KEY = PLACEHOLDER
+SUPABASE_PUBLISHABLE_KEY = PLACEHOLDER

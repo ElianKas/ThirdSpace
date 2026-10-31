@@ -78,3 +78,121 @@ DELETE FROM pendingSpotInserts WHERE id = ?;
 
 countPendingInserts:
 SELECT count(*) FROM pendingSpotInserts;
+
+-- ===========================================================================
+-- PHASE B: feed cache (posts read-only + comments read/write with an outbound
+-- queue). ADDITIVE — the cachedSpots/pendingSpotInserts tables above are left
+-- untouched. Mirrors the spots offline-first shape: a cache the UI reads
+-- synchronously, kept fresh by a background remote replace-all, plus an
+-- outbound pending-insert queue for comments created while offline.
+--
+-- STORAGE RULE (mirrors the spots cache): only flat, persisted columns live
+-- here. A post's remote `created_at` timestamptz is stored as epoch MILLIS
+-- (created_at_epoch) so ordering + relative-time formatting are done shared-
+-- side (RelativeTime) without a datetime dependency crossing the boundary.
+-- Booleans are stored as INTEGER 0/1. my_vote is a flat "UP"/"DOWN"/"NONE"
+-- string (voting is a placeholder "NONE" from the post_feed view for now).
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- cachedPosts: local mirror of the remote `public.post_feed` view's flat row.
+-- The source of truth the feed reads synchronously (getPosts()), kept fresh by
+-- a background remote replace-all.
+-- ---------------------------------------------------------------------------
+CREATE TABLE cachedPosts (
+    id TEXT NOT NULL PRIMARY KEY,
+    author_name TEXT NOT NULL DEFAULT '',
+    spot_name TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    neighborhood TEXT NOT NULL DEFAULT '',
+    verified INTEGER NOT NULL DEFAULT 0,
+    text TEXT NOT NULL DEFAULT '',
+    created_at_epoch INTEGER NOT NULL DEFAULT 0,
+    score INTEGER NOT NULL DEFAULT 0,
+    comment_count INTEGER NOT NULL DEFAULT 0,
+    my_vote TEXT NOT NULL DEFAULT 'NONE'
+);
+
+-- ---------------------------------------------------------------------------
+-- cachedComments: local mirror of a post's `public.post_comments`. Read
+-- synchronously per post (getComments(postId)); kept fresh by a per-post
+-- background replace. An optimistic local comment is upserted here immediately
+-- on create (write-through) before/independent of the remote push.
+-- ---------------------------------------------------------------------------
+CREATE TABLE cachedComments (
+    id TEXT NOT NULL PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    author_name TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL DEFAULT '',
+    created_at_epoch INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX cachedComments_post_idx ON cachedComments(post_id);
+
+-- ---------------------------------------------------------------------------
+-- pendingCommentInserts: outbound queue of locally-created comments awaiting a
+-- successful remote insert. A row stays here until its remote insert succeeds,
+-- then is deleted (dequeued). `enqueued_at` (epoch millis) orders the queue so
+-- inserts flush oldest-first. Mirrors pendingSpotInserts.
+-- ---------------------------------------------------------------------------
+CREATE TABLE pendingCommentInserts (
+    id TEXT NOT NULL PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    author_id TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL DEFAULT '',
+    enqueued_at INTEGER NOT NULL
+);
+
+-- --- cachedPosts queries ---------------------------------------------------
+
+selectAllCachedPosts:
+SELECT id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote
+FROM cachedPosts
+ORDER BY created_at_epoch DESC;
+
+-- Upsert so a remote replace-all (or a local write) overwrites an existing row
+-- by primary key rather than failing on conflict.
+upsertCachedPost:
+INSERT OR REPLACE INTO cachedPosts(id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllCachedPosts:
+DELETE FROM cachedPosts;
+
+countCachedPosts:
+SELECT count(*) FROM cachedPosts;
+
+-- --- cachedComments queries ------------------------------------------------
+
+selectCachedComments:
+SELECT id, post_id, author_name, text, created_at_epoch
+FROM cachedComments
+WHERE post_id = ?
+ORDER BY created_at_epoch ASC;
+
+upsertCachedComment:
+INSERT OR REPLACE INTO cachedComments(id, post_id, author_name, text, created_at_epoch)
+VALUES (?, ?, ?, ?, ?);
+
+deleteCommentsForPost:
+DELETE FROM cachedComments WHERE post_id = ?;
+
+countCachedComments:
+SELECT count(*) FROM cachedComments WHERE post_id = ?;
+
+-- --- pendingCommentInserts queries -----------------------------------------
+
+enqueuePendingComment:
+INSERT OR REPLACE INTO pendingCommentInserts(id, post_id, author_id, text, enqueued_at)
+VALUES (?, ?, ?, ?, ?);
+
+selectPendingComments:
+SELECT id, post_id, author_id, text, enqueued_at
+FROM pendingCommentInserts
+ORDER BY enqueued_at ASC;
+
+deletePendingComment:
+DELETE FROM pendingCommentInserts WHERE id = ?;
+
+countPendingComments:
+SELECT count(*) FROM pendingCommentInserts;

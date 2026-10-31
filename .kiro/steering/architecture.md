@@ -13,14 +13,16 @@ This document records the long-lived architecture, module boundaries, and native
 
 ## Module & package boundaries
 
-- Shared logic/data lives in package `com.example.thirdspace.data` (commonMain): `Models.kt`, `SampleData.kt`, `Formatting.kt`, `SpotCategory.kt`, `SpotRepository.kt`.
+- Shared logic/data lives in package `com.example.thirdspace.data` (commonMain): `Models.kt`, `SampleData.kt`, `Formatting.kt`, `SpotCategory.kt`, `SpotRepository.kt`, plus the backend seam — `AuthRepository.kt`, `SupabaseClientProvider.kt`, `SpotCache.kt`, `CachingSpotRepository.kt`, `SupabaseSpotRepository.kt`, `SpotMapping.kt`, and the `expect` declarations `SpotDbDriver.kt` / `Clock.kt` (with `iosMain`/`androidMain` actuals). The SQLDelight schema lives at `shared/src/commonMain/sqldelight/com/example/thirdspace/db/ThirdSpaceDb.sq`.
 - The Swift↔Kotlin boundary goes through `FeedBridge` (shared `iosMain`). Only flat, ObjC-friendly types cross it: String / Int / Bool / Double (e.g. spot `lat`/`lng`); colors as `#RRGGBB` strings; Kotlin enums exposed as String; NO nullables and NO Long across the boundary. The generated framework is named `Shared`.
+- The flat boundary now also carries CALLBACK-based hooks (auth completions/listeners, spots refresh/observe) — still flat: `Bool`/`String` completions or no-arg closures, always delivered on the main thread. All `suspend` / `Flow` / supabase-kt / Ktor / SQLDelight types stay INTERNAL to the shared module and never cross.
 
 ## Native UI conventions
 
 - No external UI library; use built-in SwiftUI controls, custom components, and SF Symbols.
 - Design tokens are centralized in Swift in the `AppColor` enum (mirrored from the shared color values), together with a `Color(hex:)` initializer. Do not hardcode hex color literals inside views — reference `AppColor`.
-- Reusable building blocks currently in place: `PostCardView`, `AvatarView`, `VoteControlView`, `FilterChipView`, `MapboxMapView`, `AddSpotSheetView`, and the `ScrollOffsetTracking` helper.
+- Reusable building blocks currently in place: `PostCardView`, `AvatarView`, `VoteControlView`, `FilterChipView`, `MapboxMapView`, `AddSpotSheetView`, the `ScrollOffsetTracking` helper, and the auth screens `LoginView` / `SignUpView` / `AuthComponents`.
+- Auth state is held in an `@Observable` Swift `Session` wrapper (mirrors the `Localization` pattern, injected into the environment) which drives the AUTH GATE in `ContentView`: auth screens when logged out, `RootTabView` when logged in.
 - The feed uses a `List` with native `.refreshable` pull-to-refresh. The `ScrollOffsetTracking` helper is reserved for a future auto-hide header step.
 - Sheet pattern: present sheets via `.sheet(item:)` + `.presentationDetents` + a visible drag indicator (reference implementation: `SpotSheetView`). AddSpot (`AddSpotSheetView`) already follows this pattern; remaining future sheets (e.g. CreatePost, Comments) follow it too rather than inventing their own.
 - Borderless pages (those using `.ignoresSafeArea(edges: .top)`) place interactive top chrome via the reusable `.topChrome` modifier / `AppLayout.topChromeSpacing` token (in `AppLayout.swift`) rather than reading `safeAreaInsets` manually inside the ignored subtree (which returns 0). `AppLayout` is the central iOS layout-token location, analogous to `AppColor`.
@@ -49,17 +51,28 @@ This document records the long-lived architecture, module boundaries, and native
 - Tokens are never hardcoded: the public `pk.` runtime token comes from a gitignored `iosApp/Mapbox.xcconfig` (seeded from the committed `Mapbox.xcconfig.template`) surfaced into Info.plist as `MBXAccessToken`; a secret `sk.` download token, if required by the SDK fetch, goes in `~/.netrc` per the committed `netrc.template`.
 - Route planning and search/geocoding are deliberately NOT implemented yet (planned later); Google Places is not used (single-vendor Mapbox).
 
+## Backend (Supabase)
+
+- Supabase is the backend. The supabase-kt SDK (GoTrue auth + Postgrest, 3.8.0; Ktor 3.5.1; kotlinx-serialization/coroutines 1.11.0) lives in the SHARED module. All supabase-kt / Ktor / coroutine / `suspend` / `Flow` types stay INTERNAL to shared — only flat types and callback-based hooks cross `FeedBridge`, always delivered on the main thread (consistent with the flat-boundary rule).
+- Auth: email/password sign-up, sign-in, sign-out, and session restore via a shared `AuthRepository` over GoTrue, exposed through a flat callback-based bridge (completions of `Bool`/`String`; an `observeAuth` listener). An `@Observable` Swift `Session` wrapper (mirrors the `Localization` pattern) drives the AUTH GATE in `ContentView` (auth screens when logged out, `RootTabView` when logged in). Sign-up passes name/city in the user metadata so the DB trigger populates the profile.
+- Keys/config: the PUBLIC publishable key (`sb_publishable_…`) + project URL come from a gitignored `iosApp/Supabase.xcconfig` (seeded from the committed `Supabase.xcconfig.template`), surfaced into Info.plist as `SupabaseURL` / `SupabasePublishableKey`, read at launch and injected via `FeedBridge.configureSupabase(url:publishableKey:)`. The URL is stored host-only (xcconfig `//` caveat; Swift re-adds the scheme). The secret/service-role key NEVER ships in the client. (Current terminology: Supabase's PUBLISHABLE key replaced the older "anon" key.)
+- DB schema: SQL migrations under the repo-root `supabase/` dir (profiles + spots) with the signup→profile trigger, `updated_at` triggers, and self-contained RLS (`spots` readable by any authenticated user; insert/update/delete own via `owner_id = auth.uid()`). The user provisions their own project and applies the migrations (`supabase link` + `supabase db push`).
+- Deliberately deferred on the backend: Realtime, spot update/delete sync, advanced conflict resolution, and the broader legacy social graph (posts/votes/comments/friendships/follows/notifications/moments/DMs/moderation) are NOT implemented.
+
 ## Spots & offline seam
 
-- `Spot` (commonMain) now carries `lat`/`lng` (Double). It remains extensible for later fields (e.g. `description`, photo).
+- `Spot` (commonMain) carries `lat`/`lng` (Double) and remains extensible for later fields (e.g. `description`, photo).
 - `SpotCategory` (commonMain) is the single source of truth for the fixed category list, each category's map-marker color (`#RRGGBB`), and the Mapbox maki/POI-class → category mapping. Category LABELS are dynamic content and are NOT part of the i18n `Strings` layer (consistent with the existing not-translated convention for spot categories).
-- `SpotRepository` (commonMain) is the offline-ready seam for spots: currently an in-memory implementation (`InMemorySpotRepository`) seeded from `SampleData`, with documented extension points for local persistence + backend sync later. Spots created/adopted at runtime are in-memory only (do NOT survive relaunch yet). Offline is a shared/cross-platform concern, so this lives in the shared module (Android can adopt it later).
+- The offline seam is now IMPLEMENTED. `SpotRepository` (commonMain) is backed by a `CachingSpotRepository` — the `Spots` provider builds it by default; `InMemorySpotRepository` remains a fallback/test impl. `CachingSpotRepository` composes a SQLDelight local cache (`cachedSpots` + a `pendingSpotInserts` outbound queue) with a `SupabaseSpotRepository` (Postgrest). Offline is a shared/cross-platform concern, so this lives in the shared module (Android can adopt it later).
+- Reads are cache-first and synchronous, so `FeedBridge.spots()`/`addSpot` stay flat and unchanged and the SwiftUI map/create UI is untouched. A background coroutine does remote fetch → replace-all → flush the pending queue. Creates write through to the cache immediately and enqueue for remote push; offline / unconfigured / unauthenticated leaves items queued and never crashes. `owner_id` comes from the session. UI-only fields (`checkInCount`, `placeholderColorArgb`) are NOT persisted — they are re-derived on read via `SpotMapping`.
+- Flat refresh hooks `FeedBridge.refreshSpots` / `observeSpots` exist (no-arg, main-thread) for live refresh; currently optional/unwired on the Swift side (the map reflects remote changes on next appearance). Real remote persistence requires the user's keys + applied migrations + a logged-in session.
 
 ## Deliberate exclusions (current state)
 
-- No backend/Supabase yet — the UI runs on `SampleData` dummy data.
+- Only auth + spot persistence are backed by Supabase. The feed posts, comments, and the profile screen still run on `SampleData` dummy data (not yet backed by Supabase).
+- The broader social graph (posts/votes/comments/friendships/follows/notifications/moments/DMs/moderation), Realtime, and spot update/delete sync remain out of scope.
 - The spot model still lacks `description` and a photo strip (both intentionally absent for now); `SpotSheetView` uses placeholder content for those fields. Coordinates (`lat`/`lng`) do now exist.
 
 ## Verification
 
-Automated/technical verification is governed by `verification-strategy.md`. iOS simulator Debug builds ARE runnable in this environment via `xcodebuild` and should be used to verify iOS/Swift changes; visual/layout QA remains the developer's responsibility.
+Automated/technical verification is governed by `verification-strategy.md`. iOS simulator Debug builds ARE runnable in this environment via `xcodebuild` and should be used to verify iOS/Swift changes; visual/layout QA remains the developer's responsibility. Shared backend logic (auth mapping, caching/queue) is unit-tested on both targets — including an in-memory SQLite round-trip on the Android host target — while real Supabase round-trips require keys + migrations + a logged-in session.

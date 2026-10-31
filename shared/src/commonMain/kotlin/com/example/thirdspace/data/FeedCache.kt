@@ -1,0 +1,198 @@
+package com.example.thirdspace.data
+
+import com.example.thirdspace.db.ThirdSpaceDb
+
+/**
+ * An entry in the outbound pending-comment-insert queue: a locally-created
+ * comment ([id], [postId], [text]) that still needs a remote insert, tagged
+ * with its [authorId] (from the session at enqueue time) and [enqueuedAt]
+ * (epoch millis, for oldest-first flush order). Mirrors [PendingSpotInsert].
+ */
+data class PendingCommentInsert(
+    val id: String,
+    val postId: String,
+    val authorId: String,
+    val text: String,
+    val enqueuedAt: Long,
+)
+
+/**
+ * The local feed store seam: a synchronous cache of feed posts + per-post
+ * comments (the source of truth the feed/comments UI reads), plus an outbound
+ * queue of comment inserts awaiting remote push.
+ *
+ * An interface (mirroring [SpotCache]) so [FeedRepository] / [CommentRepository]
+ * can be unit-tested against a trivial in-memory fake (no SQLDelight / no
+ * driver), while the production implementation ([LocalFeedCache]) is
+ * SQLDelight-backed. All operations are synchronous — no suspend / coroutine /
+ * supabase type appears here, keeping the flat-boundary guarantees intact.
+ */
+interface FeedCache {
+    // Posts (read-only mirror of the post_feed view).
+
+    /** All cached posts, newest-first (by created_at). */
+    fun getCachedPosts(): List<FeedPost>
+
+    /** Replace the ENTIRE post cache with [posts] (remote replace-all refresh). */
+    fun replaceAllPosts(posts: List<FeedPost>)
+
+    /** Upsert a single [post] into the cache (used by the offline seed). */
+    fun upsertPost(post: FeedPost)
+
+    // Comments (per-post cache + optimistic local write-through).
+
+    /** Cached comments for [postId], oldest-first. */
+    fun getCachedComments(postId: String): List<FeedComment>
+
+    /** Replace the cached comments for [postId] with [comments] (remote refresh). */
+    fun replaceCommentsForPost(postId: String, comments: List<FeedComment>)
+
+    /** Upsert a single [comment] (optimistic local write-through on create). */
+    fun upsertComment(comment: FeedComment)
+
+    // Outbound pending-comment queue.
+
+    /** Enqueue a pending comment insert. Mirrors the spots pending queue. */
+    fun enqueuePendingComment(
+        id: String,
+        postId: String,
+        authorId: String,
+        text: String,
+        enqueuedAt: Long,
+    )
+
+    /** The pending comment inserts, oldest-first. */
+    fun pendingComments(): List<PendingCommentInsert>
+
+    /** Remove the pending comment with [id] (after a successful remote push). */
+    fun dequeuePendingComment(id: String)
+}
+
+/**
+ * SQLDelight-backed [FeedCache] over [ThirdSpaceDb] (the same DB that backs the
+ * spots cache; the Phase B tables are additive).
+ *
+ * Maps rows <-> the flat [FeedPost] / [FeedComment] shapes 1:1 (booleans stored
+ * as INTEGER 0/1; `created_at` stored as epoch millis). Construct with [create]
+ * for production (platform driver) or pass any [ThirdSpaceDb] (e.g. one built
+ * on an in-memory JdbcSqliteDriver) for host tests.
+ */
+class LocalFeedCache(
+    private val db: ThirdSpaceDb,
+) : FeedCache {
+
+    private val queries get() = db.thirdSpaceDbQueries
+
+    override fun getCachedPosts(): List<FeedPost> =
+        queries.selectAllCachedPosts { id, authorName, spotName, category, neighborhood, verified, text, createdAtEpoch, score, commentCount, myVote ->
+            FeedPost(
+                id = id,
+                authorName = authorName,
+                spotName = spotName,
+                category = category,
+                neighborhood = neighborhood,
+                verified = verified != 0L,
+                text = text,
+                createdAtEpoch = createdAtEpoch,
+                score = score.toInt(),
+                commentCount = commentCount.toInt(),
+                myVote = myVote,
+            )
+        }.executeAsList()
+
+    override fun replaceAllPosts(posts: List<FeedPost>) {
+        queries.transaction {
+            queries.deleteAllCachedPosts()
+            posts.forEach { upsertPostRow(it) }
+        }
+    }
+
+    override fun upsertPost(post: FeedPost) {
+        upsertPostRow(post)
+    }
+
+    override fun getCachedComments(postId: String): List<FeedComment> =
+        queries.selectCachedComments(postId) { id, pid, authorName, text, createdAtEpoch ->
+            FeedComment(
+                id = id,
+                postId = pid,
+                authorName = authorName,
+                text = text,
+                createdAtEpoch = createdAtEpoch,
+            )
+        }.executeAsList()
+
+    override fun replaceCommentsForPost(postId: String, comments: List<FeedComment>) {
+        queries.transaction {
+            queries.deleteCommentsForPost(postId)
+            comments.forEach { upsertCommentRow(it) }
+        }
+    }
+
+    override fun upsertComment(comment: FeedComment) {
+        upsertCommentRow(comment)
+    }
+
+    override fun enqueuePendingComment(
+        id: String,
+        postId: String,
+        authorId: String,
+        text: String,
+        enqueuedAt: Long,
+    ) {
+        queries.enqueuePendingComment(
+            id = id,
+            post_id = postId,
+            author_id = authorId,
+            text = text,
+            enqueued_at = enqueuedAt,
+        )
+    }
+
+    override fun pendingComments(): List<PendingCommentInsert> =
+        queries.selectPendingComments { id, postId, authorId, text, enqueuedAt ->
+            PendingCommentInsert(
+                id = id,
+                postId = postId,
+                authorId = authorId,
+                text = text,
+                enqueuedAt = enqueuedAt,
+            )
+        }.executeAsList()
+
+    override fun dequeuePendingComment(id: String) {
+        queries.deletePendingComment(id)
+    }
+
+    private fun upsertPostRow(post: FeedPost) {
+        queries.upsertCachedPost(
+            id = post.id,
+            author_name = post.authorName,
+            spot_name = post.spotName,
+            category = post.category,
+            neighborhood = post.neighborhood,
+            verified = if (post.verified) 1L else 0L,
+            text = post.text,
+            created_at_epoch = post.createdAtEpoch,
+            score = post.score.toLong(),
+            comment_count = post.commentCount.toLong(),
+            my_vote = post.myVote,
+        )
+    }
+
+    private fun upsertCommentRow(comment: FeedComment) {
+        queries.upsertCachedComment(
+            id = comment.id,
+            post_id = comment.postId,
+            author_name = comment.authorName,
+            text = comment.text,
+            created_at_epoch = comment.createdAtEpoch,
+        )
+    }
+
+    companion object {
+        /** Build a production cache on the platform SQLDelight driver. */
+        fun create(): LocalFeedCache =
+            LocalFeedCache(ThirdSpaceDb(createSpotDbDriver()))
+    }
+}

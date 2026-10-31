@@ -36,7 +36,7 @@ object SupabaseClientProvider {
         get() = client != null
 
     /**
-     * Build and store the Supabase client from a project [url] and [anonKey].
+     * Build and store the Supabase client from a project [url] and [publishableKey].
      *
      * Treats blank or obvious placeholder values as "not configured": in that
      * case the client is left `null` and this is a no-op, so an app launched
@@ -48,12 +48,12 @@ object SupabaseClientProvider {
      * per the Phase A scope. No session is created and no request is made here;
      * this only constructs the client object.
      */
-    fun configure(url: String, anonKey: String) {
-        if (!looksConfigured(url, anonKey)) {
+    fun configure(url: String, publishableKey: String) {
+        if (!looksConfigured(url, publishableKey)) {
             client = null
             return
         }
-        client = createSupabaseClient(supabaseUrl = url, supabaseKey = anonKey) {
+        client = createSupabaseClient(supabaseUrl = url, supabaseKey = publishableKey) {
             install(Auth)
             install(Postgrest)
         }
@@ -64,9 +64,9 @@ object SupabaseClientProvider {
      * (the committed `Supabase.xcconfig` ships with `PLACEHOLDER` seeds so the
      * iOS build resolves before a developer supplies real keys).
      */
-    private fun looksConfigured(url: String, anonKey: String): Boolean {
-        if (url.isBlank() || anonKey.isBlank()) return false
-        if (anonKey == "PLACEHOLDER") return false
+    private fun looksConfigured(url: String, publishableKey: String): Boolean {
+        if (url.isBlank() || publishableKey.isBlank()) return false
+        if (publishableKey == "PLACEHOLDER") return false
         if (url.contains("PLACEHOLDER")) return false
         return true
     }

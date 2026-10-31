@@ -21,7 +21,7 @@ struct iOSApp: App {
         _session = State(initialValue: Session())
     }
 
-    /// Phase A: read the Supabase project URL + anon key from Info.plist (seeded
+    /// Phase A: read the Supabase project URL + publishable key from Info.plist (seeded
     /// from the gitignored `Supabase.xcconfig`) and hand them to the shared
     /// `FeedBridge`. The shared `SupabaseClientProvider` treats empty/placeholder
     /// values as "not configured" and builds no client, so the app launches
@@ -33,7 +33,7 @@ struct iOSApp: App {
     private static func configureSupabase() {
         let info = Bundle.main.infoDictionary
         let rawURL = (info?["SupabaseURL"] as? String) ?? ""
-        let anonKey = (info?["SupabaseAnonKey"] as? String) ?? ""
+        let publishableKey = (info?["SupabasePublishableKey"] as? String) ?? ""
 
         let host = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
         let url: String
@@ -45,7 +45,7 @@ struct iOSApp: App {
             url = "https://\(host)"
         }
 
-        FeedBridge.shared.configureSupabase(url: url, anonKey: anonKey)
+        FeedBridge.shared.configureSupabase(url: url, publishableKey: publishableKey)
     }
 
     var body: some Scene {
