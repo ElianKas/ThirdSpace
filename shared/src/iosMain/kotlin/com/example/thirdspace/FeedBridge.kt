@@ -16,9 +16,11 @@ import com.example.thirdspace.i18n.AppStrings
 import com.example.thirdspace.i18n.Strings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Flat, ObjC-friendly snapshot of a feed post for the SwiftUI native feed.
@@ -430,7 +432,7 @@ object FeedBridge {
     /** The current language code ("de" / "en"). */
     fun currentLanguageCode(): String = currentLanguageCode
 
-    // MARK: Supabase backend (Phase A — inert injection point)
+    // MARK: Supabase backend (injection point)
 
     /**
      * Flat injection point for the Supabase project [url] + publishable [publishableKey],
@@ -439,9 +441,10 @@ object FeedBridge {
      * boundary (they stay internal to the shared module per the architecture
      * steering).
      *
-     * PHASE A: this only forwards to [SupabaseClientProvider.configure], which
-     * treats empty/placeholder values as "not configured" and builds no client.
-     * No network call happens here; auth and persistence are Phases C/D.
+     * Forwards to [SupabaseClientProvider.configure], which treats
+     * empty/placeholder values as "not configured" and builds no client. The
+     * built client really backs auth, spot persistence, and the feed; no
+     * network call happens at configure time.
      */
     fun configureSupabase(url: String, publishableKey: String) {
         SupabaseClientProvider.configure(url, publishableKey)
@@ -449,26 +452,48 @@ object FeedBridge {
 
     /**
      * Whether a Supabase client has been built (real keys supplied). Flat Bool
-     * out. In Phase A with placeholder keys this stays `false`; exposed so Swift
-     * can tell the inert-until-keys state without touching supabase-kt types.
+     * out. With empty/placeholder keys this stays `false`; exposed so Swift can
+     * tell the unconfigured state without touching supabase-kt types.
      */
     fun isSupabaseConfigured(): Boolean = SupabaseClientProvider.isConfigured
 
-    // MARK: Authentication (Phase C — flat, callback-based)
+    // MARK: Authentication (flat, callback-based)
 
     /**
-     * Bridge coroutine scope for the suspend auth operations.
+     * Bridge coroutine scope for the suspend/Flow/supabase work.
      *
-     * THREADING: scoped on [Dispatchers.Main], so every auth callback and
-     * auth-state emission below is delivered to Swift ON THE MAIN THREAD. The
-     * Swift `Session` wrapper mutates `@Observable` state directly in these
-     * callbacks, so main-thread delivery is required (and avoids an extra
-     * `DispatchQueue.main.async` hop Swift-side). All suspend/Flow/supabase
-     * types stay INSIDE this scope — only flat Boolean/String cross the
-     * callbacks below (no suspend, Flow, coroutine, or supabase type is ever
-     * visible to Swift).
+     * THREADING: scoped on [Dispatchers.Default] (a BACKGROUND dispatcher), so
+     * the blocking supabase-kt / Ktor / GoTrue work (notably
+     * `restoreSession` → `auth.awaitInitialization()`, which does a network
+     * token-refresh cycle) NEVER runs on the iOS UI run loop. On Kotlin/Native
+     * iOS, [Dispatchers.Main] would run coroutine BODIES on the main thread and
+     * freeze the UI at launch (Session.init restores the session synchronously)
+     * and after login (the feed cache re-read fan-out). All suspend/Flow/
+     * supabase types stay INSIDE this scope.
+     *
+     * Each FLAT Swift-facing callback/listener is still delivered ON THE MAIN
+     * THREAD via a [withContext]`(`[Dispatchers.Main]`)` hop around ONLY the
+     * final closure invocation (see [onMain]). The Swift `Session` /
+     * `NativeFeedView` mutate `@Observable`/`@State` directly in these
+     * callbacks, so main-thread delivery of the closure is REQUIRED — only the
+     * threading changed; the flat boundary (Boolean/String, no suspend/Flow/
+     * supabase type) is unchanged.
+     *
+     * A [SupervisorJob] keeps one failing child (e.g. a thrown collection) from
+     * cancelling the whole bridge scope.
      */
-    private val authScope = CoroutineScope(Dispatchers.Main)
+    private val workScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /**
+     * Run [block] (a flat Swift-facing callback/listener invocation) ON THE
+     * MAIN THREAD. The work that produced its arguments runs off-main on
+     * [workScope]; this marshals only the FINAL closure hop onto the UI thread
+     * so Swift `@Observable`/`@State` mutations are safe. No suspend/Flow/
+     * supabase type crosses — [block] closes over flat Boolean/String only.
+     */
+    private fun onMain(block: () -> Unit) {
+        workScope.launch { withContext(Dispatchers.Main) { block() } }
+    }
 
     /**
      * Current authenticated email for the initial Swift state, or "" when there
@@ -498,9 +523,9 @@ object FeedBridge {
         city: String,
         completion: (Boolean, Boolean, String, String) -> Unit,
     ) {
-        authScope.launch {
+        workScope.launch {
             val result = AuthRepository.signUp(email, password, name, city)
-            deliver(result, completion)
+            withContext(Dispatchers.Main) { deliver(result, completion) }
         }
     }
 
@@ -513,9 +538,9 @@ object FeedBridge {
         password: String,
         completion: (Boolean, Boolean, String, String) -> Unit,
     ) {
-        authScope.launch {
+        workScope.launch {
             val result = AuthRepository.signIn(email, password)
-            deliver(result, completion)
+            withContext(Dispatchers.Main) { deliver(result, completion) }
         }
     }
 
@@ -525,9 +550,9 @@ object FeedBridge {
      * isAuthenticated=false, email=""). Flat types only.
      */
     fun signOut(completion: (Boolean, Boolean, String, String) -> Unit) {
-        authScope.launch {
+        workScope.launch {
             val result = AuthRepository.signOut()
-            deliver(result, completion)
+            withContext(Dispatchers.Main) { deliver(result, completion) }
         }
     }
 
@@ -538,9 +563,9 @@ object FeedBridge {
      * main thread. Safe when unconfigured (success=false, "not_configured").
      */
     fun restoreSession(completion: (Boolean, Boolean, String, String) -> Unit) {
-        authScope.launch {
+        workScope.launch {
             val result = AuthRepository.restoreSession()
-            deliver(result, completion)
+            withContext(Dispatchers.Main) { deliver(result, completion) }
         }
     }
 
@@ -548,16 +573,20 @@ object FeedBridge {
      * Observe auth-state changes. [listener] is invoked on the main thread with
      * flat `(isAuthenticated, email)` whenever the session status changes
      * (sign-in, sign-out, token refresh, restore). Collects the internal GoTrue
-     * `sessionStatus` Flow on the bridge scope — the Flow/SessionStatus types
-     * never leave the shared module; only Boolean/String reach Swift.
+     * `sessionStatus` Flow on the background [workScope] (so it never blocks the
+     * UI run loop) and marshals each emission's [listener] call onto the main
+     * thread — the Flow/SessionStatus types never leave the shared module; only
+     * Boolean/String reach Swift.
      *
      * When unconfigured, emits a single `(false, "")` so Swift still gets an
      * initial logged-out state without crashing.
      */
     fun observeAuth(listener: (Boolean, String) -> Unit) {
         AuthRepository.authStateFlow()
-            .onEach { result -> listener(result.isAuthenticated, result.email) }
-            .launchIn(authScope)
+            .onEach { result ->
+                withContext(Dispatchers.Main) { listener(result.isAuthenticated, result.email) }
+            }
+            .launchIn(workScope)
     }
 
     /**
@@ -610,8 +639,8 @@ object FeedBridge {
      * The feed, sourced from the shared offline-first [Feed.posts] repository
      * (cache-first + background remote refresh), mapped to flat [IosPost].
      *
-     * The [IosPost] output shape is UNCHANGED from the previous SampleData
-     * version. Phase B only swaps the SOURCE:
+     * The [IosPost] output shape is UNCHANGED from the earlier SampleData
+     * version; only the SOURCE differs:
      * - [IosPost.dateLabel] is now formatted SHARED-SIDE from the post's
      *   created_at epoch via [RelativeTime.format] for the current language
      *   (replacing SampleData's baked German labels). The epoch stays inside
@@ -698,9 +727,10 @@ object FeedBridge {
      * resolved from the category label via [SpotCategory.colorHexForLabel], so
      * this field only backs any future placeholder surface).
      *
-     * New spots are in-memory only (they do NOT survive relaunch) — the
-     * in-memory [Spots.repository] is the single source of truth the map
-     * re-reads via [spots].
+     * New spots are written through the caching [Spots.repository]: stored in
+     * the local cache immediately (so the created pin shows at once when the map
+     * re-reads via [spots]) and enqueued for a background remote push to
+     * Supabase, syncing when online/authenticated.
      */
     fun addSpot(
         id: String,
@@ -734,15 +764,18 @@ object FeedBridge {
      * type crosses.
      *
      * The refresh itself runs in the background inside the shared module (the
-     * CachingSpotRepository's own scope); [getSpots] triggers it. This hook
-     * simply re-triggers it on demand (e.g. a Swift pull-to-refresh) and lets
-     * Swift re-read [spots] afterwards. A live remote result also arrives via
-     * [observeSpots]. [completion] fires on the main thread via [authScope].
+     * CachingSpotRepository's own scope). Reads ([spots]) are now PURE cache
+     * reads and no longer trigger a refresh, so this hook is the explicit way
+     * to pull from the backend on demand (e.g. a Swift pull-to-refresh); Swift
+     * re-reads [spots] afterwards. A live remote result also arrives via
+     * [observeSpots]. [completion] fires on the main thread via [onMain].
      */
     fun refreshSpots(completion: () -> Unit) {
-        // Reading spots() kicks off the background remote refresh/flush.
-        Spots.repository.getSpots()
-        authScope.launch { completion() }
+        // Explicitly kick off the background remote refresh/flush. (Reads no
+        // longer trigger it — that was the per-second GET loop; spots() is now
+        // a pure cache read.)
+        Spots.refresh()
+        onMain { completion() }
     }
 
     /**
@@ -761,11 +794,11 @@ object FeedBridge {
         Spots.setChangeListener {
             // Hop onto the main thread so Swift @Observable/@State mutations are
             // safe, mirroring the auth-callback threading contract.
-            authScope.launch { listener() }
+            onMain { listener() }
         }
     }
 
-    // MARK: Feed (Phase B — flat, callback-based)
+    // MARK: Feed (flat, callback-based)
 
     /**
      * Ask the shared repository to refresh the feed from the backend, invoking
@@ -773,13 +806,15 @@ object FeedBridge {
      * kicked off. FLAT: no args, plain closure; no suspend/supabase/SQLDelight
      * type crosses. Mirrors [refreshSpots].
      *
-     * Reading [Feed.posts].getPosts() kicks off the background remote
+     * [Feed.posts].refresh() explicitly kicks off the background remote
      * refresh/replace-all; a live remote result also arrives via [observeFeed].
+     * Reads ([posts]) are now PURE cache reads and no longer trigger a refresh
+     * (that was the per-second GET loop), so this is the explicit pull path.
      * Swift re-reads [posts] afterwards (e.g. on a pull-to-refresh).
      */
     fun loadFeed(completion: () -> Unit) {
-        Feed.posts.getPosts()
-        authScope.launch { completion() }
+        Feed.posts.refresh()
+        onMain { completion() }
     }
 
     /**
@@ -791,7 +826,7 @@ object FeedBridge {
      */
     fun observeFeed(listener: () -> Unit) {
         Feed.setChangeListener {
-            authScope.launch { listener() }
+            onMain { listener() }
         }
     }
 
@@ -810,13 +845,72 @@ object FeedBridge {
      */
     fun addComment(postId: String, text: String, completion: () -> Unit) {
         Feed.comments.addComment(postId, text)
-        authScope.launch { completion() }
+        onMain { completion() }
+    }
+
+    /**
+     * Explicitly refresh one post's comments from the backend, invoking the
+     * flat [completion] on the MAIN THREAD once the refresh has been kicked
+     * off. FLAT: String arg, plain closure; no suspend/supabase/SQLDelight type
+     * crosses. Mirrors [loadFeed]/[refreshSpots].
+     *
+     * Reads ([comments]) are now PURE cache reads and no longer trigger a
+     * refresh (that fed the same per-second request loop since comments share
+     * the feed change listener), so this is the explicit pull path. Swift
+     * re-reads [comments] afterwards; a live remote result also arrives via
+     * [observeFeed].
+     */
+    fun loadComments(postId: String, completion: () -> Unit) {
+        Feed.comments.refresh(postId)
+        onMain { completion() }
+    }
+
+    /**
+     * Create a new post on [spotId] with [text] through the shared [Feed.posts]
+     * repository: an optimistic local write-through (the post shows at the TOP
+     * of the feed at once) + an enqueue + a background remote push. The flat
+     * [completion] is invoked on the MAIN THREAD once the create has been
+     * scheduled, so Swift can re-read [posts]. FLAT: String args, plain
+     * closure; no suspend/supabase/SQLDelight type crosses.
+     *
+     * The optimistic author name is the current user's email from
+     * [AuthRepository]; the author id (for the remote insert) likewise comes
+     * from the session; the spot metadata (name/category/neighborhood/verified)
+     * is resolved shared-side from the chosen [spotId] via the Spots repository
+     * (the picker reuses the existing flat [spots] list). [text] MAY be empty (a
+     * pure check-in). Offline / unconfigured / unauthenticated leaves the post
+     * queued and never crashes; the authoritative row replaces the optimistic
+     * one on the next refresh.
+     */
+    fun createPost(spotId: String, text: String, completion: () -> Unit) {
+        Feed.posts.createPost(spotId, text)
+        onMain { completion() }
+    }
+
+    /**
+     * Register a tap on the post [postId] through the shared [Feed.votes]
+     * repository. [direction] is `1` (up tapped) or `-1` (down tapped). The
+     * shared toggle state machine resolves the new score/vote-state, applies it
+     * OPTIMISTICALLY (so the UI reflects the tap at once) + enqueues the latest
+     * intent + pushes in the background. The flat [completion] is invoked on the
+     * MAIN THREAD once the vote has been scheduled, so Swift can re-read [posts]
+     * (the updated [IosPost.score] / [IosPost.voteState]). FLAT: String/Int
+     * args, plain closure; no suspend/supabase/SQLDelight type crosses.
+     *
+     * Offline / unconfigured / unauthenticated leaves the latest intent queued
+     * and never crashes; a newer tap on the same post replaces the queued
+     * intent (latest-intent-wins). The authoritative score/my_vote from the
+     * `post_feed` view replaces the optimistic values on the next refresh.
+     */
+    fun vote(postId: String, direction: Int, completion: () -> Unit) {
+        Feed.votes.vote(postId, direction)
+        onMain { completion() }
     }
 
     /**
      * Map a Mapbox POI's [maki] icon id and symbol [clazz] to a category label
-     * (flat String in/out). Wired for Phase 4's POI-adopt prefill; exposed here
-     * so the category spec is consumed from the single shared source.
+     * (flat String in/out). Backs the map's POI-adopt prefill; exposed here so
+     * the category spec is consumed from the single shared source.
      */
     fun categoryForMaki(maki: String, clazz: String): String =
         SpotCategory.categoryForMaki(maki, clazz)

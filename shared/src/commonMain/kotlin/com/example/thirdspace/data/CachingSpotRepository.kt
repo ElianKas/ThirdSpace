@@ -44,9 +44,14 @@ class CachingSpotRepository internal constructor(
     seedIfEmpty: List<Spot> = InMemorySpotRepository.defaultSeed(),
 ) : SpotRepository {
 
-    // Serializes background refresh/flush runs so two getSpots() calls don't
-    // race on the cache (replace-all + queue flush must be atomic-ish).
+    // Serializes background refresh/flush runs so two refreshes don't race on
+    // the cache (replace-all + queue flush must be atomic-ish).
     private val syncMutex = Mutex()
+
+    // In-flight guard so concurrent/back-to-back refreshes coalesce to a single
+    // remote fetch (same per-second GET loop the feed had: read -> GET ->
+    // replace-all -> onChanged -> re-read -> GET …).
+    private var refreshing = false
 
     init {
         if (cache.getCachedSpots().isEmpty()) {
@@ -54,11 +59,20 @@ class CachingSpotRepository internal constructor(
         }
     }
 
-    override fun getSpots(): List<Spot> {
-        val local = cache.getCachedSpots()
-        scope.launch { refreshFromRemote() }
-        return local
-    }
+    /**
+     * PURE cache read — returns the LOCAL cached spots and triggers NO remote
+     * refresh. Reads must never kick off a GET (that self-reinforcing loop was
+     * the confirmed per-second request flood). Use [refresh] for an explicit
+     * remote pull (bridge refreshSpots / pull-to-refresh).
+     */
+    override fun getSpots(): List<Spot> = cache.getCachedSpots()
+
+    /**
+     * Explicit remote refresh trigger (bridge refreshSpots). Deliberately NOT
+     * on the [SpotRepository] interface so [InMemorySpotRepository] is
+     * unaffected; the [Spots] provider forwards to it.
+     */
+    fun refresh() { scope.launch { refreshFromRemote() } }
 
     override fun addSpot(spot: Spot) {
         // Write-through: show the pin immediately and remember the push.
@@ -76,6 +90,10 @@ class CachingSpotRepository internal constructor(
     private suspend fun refreshFromRemote() {
         if (!remote.isAvailable() || !isAuthenticated()) return
         syncMutex.withLock {
+            // Coalesce: if a refresh is already running, skip (prevents the
+            // stacked/looping fetch). Reset in finally so later refreshes work.
+            if (refreshing) return@withLock
+            refreshing = true
             var changed = false
             try {
                 val remoteSpots = remote.fetchSpots()
@@ -83,6 +101,8 @@ class CachingSpotRepository internal constructor(
                 changed = true
             } catch (_: Throwable) {
                 // Offline / transient: keep serving the existing cache.
+            } finally {
+                refreshing = false
             }
             if (flushPendingLocked()) changed = true
             if (changed) onChanged()

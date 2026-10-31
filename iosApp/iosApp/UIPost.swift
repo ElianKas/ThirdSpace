@@ -130,8 +130,11 @@ struct UIComment: Identifiable {
         self.text = bridged.text
     }
 
-    /// Local-only initializer for optimistic, non-persisted comments typed in
-    /// the Comments sheet (never written back through the bridge).
+    /// Local-only initializer, currently UNUSED. Comment creation now persists
+    /// through the bridge (`FeedData.addComment` -> optimistic local
+    /// write-through + offline queue to Supabase), after which the Comments
+    /// sheet re-reads `comments(postId:)`, so comments are no longer built
+    /// locally via this initializer.
     init(id: String, authorName: String, timeLabel: String, text: String) {
         self.id = id
         self.authorName = authorName
@@ -303,6 +306,34 @@ enum FeedData {
         FeedBridge.shared.addComment(postId: postId, text: text, completion: completion)
     }
 
+    /// Kick off a background remote refresh of one post's comments. The flat
+    /// `completion` fires on the MAIN thread once the refresh is scheduled;
+    /// callers re-read `comments(postId:)` in it to pick up the refreshed data.
+    /// Reads alone no longer trigger a remote fetch, so this is the explicit
+    /// pull path.
+    static func loadComments(postId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadComments(postId: postId, completion: completion)
+    }
+
+    /// Persist a new post for `spotId` with `text` through the shared repository
+    /// (optimistic write-through at the top of the feed + offline queue). Empty
+    /// `text` is allowed (a pure check-in). The flat `completion` fires on the
+    /// MAIN thread after the shared write-through, so callers re-read `posts()`
+    /// to show it. FLAT: String args + plain closure; no suspend/supabase types.
+    static func createPost(spotId: String, text: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.createPost(spotId: spotId, text: text, completion: completion)
+    }
+
+    /// Register a vote tap on `postId` through the shared repository. `direction`
+    /// is `1` (up tapped) or `-1` (down tapped); the shared toggle state machine
+    /// resolves the new score/vote-state, applies it optimistically, and queues
+    /// the latest intent. The flat `completion` fires on the MAIN thread after
+    /// the shared write-through, so callers re-read `posts()` to reflect the
+    /// updated score/voteState. FLAT: Int/String args + plain closure.
+    static func vote(postId: String, direction: Int, completion: @escaping () -> Void) {
+        FeedBridge.shared.vote(postId: postId, direction: Int32(direction), completion: completion)
+    }
+
     /// The fixed category labels (8 `SpotCategory` entries) from the shared
     /// bridge, in declaration order. The create-spot sheet renders its category
     /// pills from this list, so Swift never hardcodes the category list.
@@ -319,7 +350,7 @@ enum FeedData {
 
     /// Resolve a category label (one of `categories()`) from a tapped Mapbox
     /// POI's `maki` icon id and symbol `clazz`, via the shared `SpotCategory`
-    /// mapping (single source of truth). Flat String in/out. Used by the Phase 4
+    /// mapping (single source of truth). Flat String in/out. Used by the map's
     /// POI-adopt flow so the create-spot sheet preselects a sensible category.
     static func categoryForMaki(maki: String, clazz: String) -> String {
         FeedBridge.shared.categoryForMaki(maki: maki, clazz: clazz)

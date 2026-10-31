@@ -19,6 +19,11 @@ struct PostCardView: View {
     /// previews compile unchanged; `NativeFeedView` passes a closure to present
     /// the spot detail sheet.
     var onTap: (() -> Void)? = nil
+    /// Optional vote callback, mirroring `onTap`. The argument is the tapped
+    /// direction (`1` = up, `-1` = down). Defaults to `nil` so display-only
+    /// call sites / previews compile unchanged; `NativeFeedView` passes a
+    /// closure that calls `FeedData.vote` and re-reads `posts`.
+    var onVote: ((Int) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -111,7 +116,12 @@ struct PostCardView: View {
 
     private var actionRow: some View {
         HStack(spacing: 0) {
-            VoteControlView(score: post.score, voteState: post.voteState)
+            VoteControlView(
+                score: post.score,
+                voteState: post.voteState,
+                onUp: { onVote?(1) },
+                onDown: { onVote?(-1) }
+            )
 
             Spacer().frame(width: 20)
 
@@ -147,21 +157,32 @@ struct PostCardView: View {
 struct VoteControlView: View {
     let score: Int
     let voteState: String
+    /// Up-arrow tap. Defaults to a no-op so previews / display-only call sites
+    /// compile unchanged. Wired call sites forward to `FeedData.vote(…, +1)`.
+    var onUp: () -> Void = {}
+    /// Down-arrow tap. Defaults to a no-op. Forwards to `FeedData.vote(…, -1)`.
+    var onDown: () -> Void = {}
 
     private var upActive: Bool { voteState == "UP" }
     private var downActive: Bool { voteState == "DOWN" }
 
     var body: some View {
         HStack(spacing: AppDimens.spacingSM) {
-            Image(systemName: "arrow.up")
-                .font(.system(size: AppTypography.body, weight: .semibold))
-                .foregroundColor(upActive ? AppColor.brand : AppColor.mutedForeground)
+            Button(action: onUp) {
+                Image(systemName: "arrow.up")
+                    .font(.system(size: AppTypography.body, weight: .semibold))
+                    .foregroundColor(upActive ? AppColor.brand : AppColor.mutedForeground)
+            }
+            .buttonStyle(.plain)
             Text("\(score)")
                 .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
-            Image(systemName: "arrow.down")
-                .font(.system(size: AppTypography.body, weight: .semibold))
-                .foregroundColor(downActive ? AppColor.secondary : AppColor.mutedForeground)
+            Button(action: onDown) {
+                Image(systemName: "arrow.down")
+                    .font(.system(size: AppTypography.body, weight: .semibold))
+                    .foregroundColor(downActive ? AppColor.secondary : AppColor.mutedForeground)
+            }
+            .buttonStyle(.plain)
         }
     }
 }

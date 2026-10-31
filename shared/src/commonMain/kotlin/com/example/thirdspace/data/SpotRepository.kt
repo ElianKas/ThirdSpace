@@ -11,17 +11,19 @@ import kotlinx.coroutines.SupervisorJob
  * cross-platform concern (not iOS-specific), so it lives in the shared module
  * where Android can adopt it later.
  *
- * EXTENSION POINTS (deliberately NOT implemented in Phase 2 — in-memory only):
- * - A local-persistence implementation (e.g. SQLDelight / a key-value store)
- *   can implement this same interface so the spots survive relaunch.
- * - A backend-sync implementation can wrap a local cache + a remote source,
- *   reconciling them, while still exposing exactly these operations.
+ * IMPLEMENTATIONS:
+ * - [CachingSpotRepository] (the DEFAULT, built by the [Spots] provider) is the
+ *   offline-first implementation: a SQLDelight local cache + the supabase-kt
+ *   [SupabaseSpotRepository] remote source, reconciled behind this interface so
+ *   spots survive relaunch and sync when online.
+ * - [InMemorySpotRepository] remains a fallback/test implementation that holds
+ *   spots in a plain list with no persistence or sync.
  * Because callers depend only on this interface and on the flat [Spot] model
- * (which already carries [Spot.lat]/[Spot.lng]), persistence or networking can
- * be plugged in LATER WITHOUT reshaping the model or the call sites. Future
- * async variants (e.g. suspend functions / a Flow of spots) would be added here
- * as the networking layer lands; Phase 2 keeps the surface synchronous and
- * minimal on purpose.
+ * (which already carries [Spot.lat]/[Spot.lng]), the persistent/synced
+ * implementation plugs in WITHOUT reshaping the model or the call sites. The
+ * surface stays synchronous on purpose: the async remote work (suspend / Flow /
+ * supabase types) stays internal to [CachingSpotRepository] and never crosses
+ * this interface.
  */
 interface SpotRepository {
     /** All known spots, in insertion order. */
@@ -33,8 +35,9 @@ interface SpotRepository {
 
 /**
  * In-memory [SpotRepository] seeded from [SampleData]. Holds spots in a plain
- * mutable list; nothing is persisted or synced (see the interface doc for the
- * planned persistence/backend extension points).
+ * mutable list; nothing is persisted or synced. Serves as a fallback/test impl
+ * (the persistent/synced default is [CachingSpotRepository]; see the interface
+ * doc).
  *
  * Seeding is derived from [SampleData.posts] so the map shows the SAME spots
  * the feed references (single source of truth), de-duplicated by [Spot.id]
@@ -62,12 +65,11 @@ class InMemorySpotRepository(
 /**
  * The process-wide spot repository provider.
  *
- * Phase D: the default [repository] is an offline-first [CachingSpotRepository]
- * over the SQLDelight-backed [LocalSpotCache] + the supabase-kt
- * [SupabaseSpotRepository], running its background refresh/flush on a shared
- * [Dispatchers.Default] scope. The [SpotRepository] interface and the call
- * sites (FeedBridge.spots()/addSpot) are unchanged — only this provider swapped
- * in the persistent/synced implementation.
+ * The default [repository] is an offline-first [CachingSpotRepository] over the
+ * SQLDelight-backed [LocalSpotCache] + the supabase-kt [SupabaseSpotRepository],
+ * running its background refresh/flush on a shared [Dispatchers.Default] scope.
+ * The [SpotRepository] interface and the call sites (FeedBridge.spots()/addSpot)
+ * are unchanged — this provider supplies the persistent/synced implementation.
  *
  * [InMemorySpotRepository] stays available for tests and as a fallback.
  *
@@ -98,6 +100,15 @@ object Spots {
     fun setChangeListener(listener: () -> Unit) {
         changeListener = listener
     }
+
+    /**
+     * Explicit remote refresh trigger for the bridge (refreshSpots /
+     * pull-to-refresh). Forwards to the caching repository's refresh when the
+     * live [repository] is a [CachingSpotRepository]; a no-op for the in-memory
+     * fallback (which has nothing to refresh). Kept off the [SpotRepository]
+     * interface so [InMemorySpotRepository] is unaffected.
+     */
+    fun refresh() { (repository as? CachingSpotRepository)?.refresh() }
 
     private fun buildDefault(): SpotRepository =
         try {

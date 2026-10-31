@@ -41,7 +41,20 @@ struct NativeFeedView: View {
             Section {
                 ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
                     VStack(alignment: .leading, spacing: 0) {
-                        PostCardView(post: post, onTap: { selectedPost = post })
+                        PostCardView(
+                            post: post,
+                            onTap: { selectedPost = post },
+                            onVote: { direction in
+                                // Register the tap through the flat bridge; the
+                                // shared layer applies the optimistic
+                                // score/my_vote and fires onChanged. Re-read
+                                // posts() in the completion so the card updates
+                                // promptly (observeFeed also re-reads live).
+                                FeedData.vote(postId: post.id, direction: direction) {
+                                    posts = FeedData.posts()
+                                }
+                            }
+                        )
 
                         // 1px hairline between cards (not after the last one),
                         // matching the previous ScrollView/LazyVStack look.

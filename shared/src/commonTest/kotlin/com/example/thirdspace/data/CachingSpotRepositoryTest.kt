@@ -196,7 +196,7 @@ class CachingSpotRepositoryTest {
             ownerIdProvider = { "owner-1" }, isAuthenticated = { true },
             clock = { 100L }, onChanged = { notified++ }, seedIfEmpty = emptyList(),
         )
-        repo.getSpots()
+        repo.refresh()
         // Replace-all installed the remote rows.
         assertEquals(listOf("remote-a", "remote-b"), cache.getCachedSpots().map { it.id })
         // The previously-queued insert was flushed and dequeued.
@@ -216,10 +216,70 @@ class CachingSpotRepositoryTest {
             ownerIdProvider = { "" }, isAuthenticated = { false }, // not signed in
             clock = { 100L }, seedIfEmpty = emptyList(),
         )
-        repo.getSpots()
+        repo.refresh()
         // Not authenticated -> no remote fetch, cache untouched.
         assertEquals(0, remote.fetchCount)
         assertEquals(listOf("local"), cache.getCachedSpots().map { it.id })
+    }
+
+    // --- ROOT-CAUSE regression: reads must NOT trigger remote fetches ---
+    // (Automated proxy for the per-second Supabase GET flood.)
+
+    @Test
+    fun getSpotsNeverTriggersRemoteFetchEvenRepeatedly() {
+        val cache = FakeCache()
+        cache.upsert(sampleSpot("local"))
+        val remote = FakeRemote(available = true, fetchResult = listOf(sampleSpot("remote")))
+        val repo = CachingSpotRepository(
+            cache = cache, scope = scope, remote = remote,
+            ownerIdProvider = { "owner-1" }, isAuthenticated = { true },
+            clock = { 100L }, seedIfEmpty = emptyList(),
+        )
+        repeat(5) { repo.getSpots() }
+        // Pure read: ZERO fetches, cache untouched by any refresh.
+        assertEquals(0, remote.fetchCount)
+        assertEquals(listOf("local"), cache.getCachedSpots().map { it.id })
+    }
+
+    @Test
+    fun refreshTriggersExactlyOneFetch() {
+        val cache = FakeCache()
+        val remote = FakeRemote(available = true, fetchResult = listOf(sampleSpot("remote")))
+        val repo = CachingSpotRepository(
+            cache = cache, scope = scope, remote = remote,
+            ownerIdProvider = { "owner-1" }, isAuthenticated = { true },
+            clock = { 100L }, seedIfEmpty = emptyList(),
+        )
+        repo.refresh()
+        assertEquals(1, remote.fetchCount)
+    }
+
+    @Test
+    fun backToBackRefreshCoalescesToOneInFlightFetch() {
+        val cache = FakeCache()
+        // Gated fake: the first fetch stays in flight (suspended on the gate)
+        // so a second refresh cannot start a concurrent fetch (in-flight guard
+        // + syncMutex coalesce). Without coalescing the read-loop stacked ~1/s.
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val remote = object : RemoteSpotSource {
+            var fetchCount = 0
+            override fun isAvailable() = true
+            override suspend fun fetchSpots(): List<Spot> {
+                fetchCount++
+                gate.await()
+                return emptyList()
+            }
+            override suspend fun insertSpot(spot: Spot, ownerId: String) = true
+        }
+        val repo = CachingSpotRepository(
+            cache = cache, scope = scope, remote = remote,
+            ownerIdProvider = { "owner-1" }, isAuthenticated = { true },
+            clock = { 100L }, seedIfEmpty = emptyList(),
+        )
+        repo.refresh()
+        repo.refresh()
+        assertEquals(1, remote.fetchCount)
+        gate.complete(Unit)
     }
 
     @Test

@@ -7,15 +7,21 @@ import SwiftUI
 ///
 /// Sections, top to bottom (via `SheetScaffold`):
 /// - Title "Ich war hier" + subtitle.
-/// - Spot selector: a selectable list derived from the existing posts
-///   (distinct by spot name — NO new bridge method). Selecting sets local
-///   `@State`; the selection can be cleared. A simple search field filters it.
+/// - Spot selector: a selectable list sourced from the REAL spots
+///   (`FeedData.spots()`), each carrying the real spot `id` so creation passes
+///   a real `spot_id`. Selecting sets local `@State`; the selection can be
+///   cleared. A simple search field filters it by name.
 /// - Caption `TextEditor` (local state, with a placeholder).
 /// - A photo PLACEHOLDER tile ("Foto hinzufügen") — no-op, no real PHPicker.
 /// - A visibility toggle (Öffentlich / Freunde) — local, visual only.
-/// - "Posten" button — disabled until a spot is selected; action dismisses.
+/// - "Posten" button — disabled until a spot is selected (empty caption IS
+///   allowed, a pure check-in); on tap it persists a real post via
+///   `FeedData.createPost` and then dismisses.
 ///
-/// Everything is visual/local: no upload, no persistence, no bridge write.
+/// Post creation goes through the flat `FeedData.createPost` hook (optimistic
+/// write-through + offline queue shared-side). The photo placeholder and the
+/// visibility toggle remain visual-only/inert — the shared `createPost` takes
+/// only `spotId` + `text` (the posts table has no photo/visibility column).
 /// Styling uses only `AppColor` tokens and the hoisted shared components.
 struct CreatePostView: View {
     @Environment(Localization.self) private var loc
@@ -24,13 +30,17 @@ struct CreatePostView: View {
     var onClose: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
-    // Derived, distinct spot options (by name) from the existing feed posts.
-    private let spots: [SpotOption] = CreatePostView.distinctSpots()
+    // The REAL spots (with real ids) from the shared bridge, used as the
+    // picker source so creation can pass a real spot_id.
+    private let spots: [SpotOption] = CreatePostView.realSpots()
 
     @State private var selectedSpot: SpotOption?
     @State private var searchText: String = ""
     @State private var caption: String = ""
     @State private var visibility: Visibility = .publicEveryone
+    /// Brief working state while the shared write-through runs, so a double-tap
+    /// cannot fire two creates. The sheet dismisses in the completion.
+    @State private var isPosting = false
 
     var body: some View {
         ScrollView {
@@ -291,17 +301,36 @@ struct CreatePostView: View {
     // MARK: Post button
 
     private var postButton: some View {
-        SheetActionButton(
+        // Disabled until a spot is selected (empty caption is allowed) and
+        // while a create is already in flight.
+        let disabled = selectedSpot == nil || isPosting
+        return SheetActionButton(
             icon: "paperplane.fill",
             label: loc.strings.createPost,
             style: .primary,
-            action: closeAction
+            action: postAction
         )
-        .opacity(selectedSpot == nil ? 0.5 : 1)
-        .disabled(selectedSpot == nil)
+        .opacity(disabled ? 0.5 : 1)
+        .disabled(disabled)
     }
 
     // MARK: Helpers
+
+    /// Persist a real post for the selected spot, then dismiss. The caption may
+    /// be empty (pure check-in). Goes through the flat `FeedData.createPost`
+    /// hook; on completion (main thread) we nudge the feed with `loadFeed` so
+    /// the just-created optimistic post is picked up, then close. The feed's own
+    /// `observeFeed` listener also re-reads, so there is no duplicate post.
+    private func postAction() {
+        guard let spot = selectedSpot, !isPosting else { return }
+        isPosting = true
+        let text = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+        FeedData.createPost(spotId: spot.id, text: text) {
+            FeedData.loadFeed {
+                closeAction()
+            }
+        }
+    }
 
     private func closeAction() {
         if let onClose {
@@ -311,21 +340,17 @@ struct CreatePostView: View {
         }
     }
 
-    /// Distinct spot options derived from the existing feed posts (by name).
-    /// No new bridge method — derived purely from `UIPost` fields.
-    private static func distinctSpots() -> [SpotOption] {
-        var seen = Set<String>()
-        var result: [SpotOption] = []
-        for post in FeedData.posts() where seen.insert(post.spotName).inserted {
-            result.append(
-                SpotOption(
-                    name: post.spotName,
-                    category: post.category,
-                    neighborhood: post.neighborhood
-                )
+    /// Spot options sourced from the REAL shared spots (`FeedData.spots()`),
+    /// carrying the real spot `id` so creation passes a real `spot_id`.
+    private static func realSpots() -> [SpotOption] {
+        FeedData.spots().map { spot in
+            SpotOption(
+                id: spot.id,
+                name: spot.name,
+                category: spot.category,
+                neighborhood: spot.neighborhood
             )
         }
-        return result
     }
 }
 
@@ -335,11 +360,12 @@ extension CreatePostView {
     /// Local visibility choice (visual only).
     enum Visibility { case publicEveryone, friends }
 
-    /// A selectable spot derived from an existing post's spot fields.
+    /// A selectable spot sourced from a real shared `UISpot`. `id` is the REAL
+    /// spot id passed to `FeedData.createPost` as `spot_id`.
     struct SpotOption: Identifiable, Equatable {
+        let id: String
         let name: String
         let category: String
         let neighborhood: String
-        var id: String { name }
     }
 }

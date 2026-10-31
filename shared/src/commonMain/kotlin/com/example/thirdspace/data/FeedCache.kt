@@ -17,6 +17,37 @@ data class PendingCommentInsert(
 )
 
 /**
+ * An entry in the outbound pending-post-insert queue: a locally-created post
+ * ([id] = the LOCAL optimistic id, used purely as the dequeue handle) on
+ * [spotId], authored by [authorId] (from the session at enqueue time), with
+ * [text] (may be empty — a post can be a pure check-in), tagged with
+ * [enqueuedAt] (epoch millis, oldest-first flush order). Mirrors
+ * [PendingCommentInsert]. The real DB-generated post id arrives on the next
+ * remote refresh; this local id never reaches the remote insert.
+ */
+data class PendingPostInsert(
+    val id: String,
+    val spotId: String,
+    val authorId: String,
+    val text: String,
+    val enqueuedAt: Long,
+)
+
+/**
+ * The user's LATEST vote intent for a post, as queued for a remote push.
+ * Keyed by [postId] (one row per post — latest-intent-wins). [value] is the
+ * RESOLVED intent: `1` = upvote, `-1` = downvote, `0` = CLEAR (delete the
+ * user's remote vote). [enqueuedAt] (epoch millis) orders the flush
+ * oldest-first. The `0` clear intent is specific to this queue (the remote
+ * `post_votes` row only ever holds +/-1).
+ */
+data class PendingVote(
+    val postId: String,
+    val value: Int,
+    val enqueuedAt: Long,
+)
+
+/**
  * The local feed store seam: a synchronous cache of feed posts + per-post
  * comments (the source of truth the feed/comments UI reads), plus an outbound
  * queue of comment inserts awaiting remote push.
@@ -66,6 +97,46 @@ interface FeedCache {
 
     /** Remove the pending comment with [id] (after a successful remote push). */
     fun dequeuePendingComment(id: String)
+
+    // Outbound pending-post queue (post creation).
+
+    /** Enqueue a pending post insert. Mirrors the pending-comment queue. */
+    fun enqueuePendingPost(
+        id: String,
+        spotId: String,
+        authorId: String,
+        text: String,
+        enqueuedAt: Long,
+    )
+
+    /** The pending post inserts, oldest-first. */
+    fun pendingPosts(): List<PendingPostInsert>
+
+    /** Remove the pending post with [id] (after a successful remote push). */
+    fun dequeuePendingPost(id: String)
+
+    // Voting: optimistic cache update + latest-intent outbound queue.
+
+    /**
+     * Optimistically set a cached post's [newScore] + [newMyVote] in place.
+     * No-op when the post is not cached (defensive). Reads the current row and
+     * rewrites it via [upsertPost] so the score/my_vote reflect the user's tap
+     * immediately (reconciled by the next remote replace-all).
+     */
+    fun updatePostVote(postId: String, newScore: Int, newMyVote: String)
+
+    /**
+     * Enqueue (latest-intent-wins) the user's vote intent for [postId]. [value]
+     * is `1`/`-1`/`0` (0 = clear). Keyed by [postId]: a newer intent REPLACES
+     * the queued one.
+     */
+    fun upsertPendingVote(postId: String, value: Int, enqueuedAt: Long)
+
+    /** The pending vote intents, oldest-first. */
+    fun pendingVotes(): List<PendingVote>
+
+    /** Remove the pending vote for [postId] (after a successful remote push). */
+    fun dequeuePendingVote(postId: String)
 }
 
 /**
@@ -162,6 +233,55 @@ class LocalFeedCache(
 
     override fun dequeuePendingComment(id: String) {
         queries.deletePendingComment(id)
+    }
+
+    override fun enqueuePendingPost(
+        id: String,
+        spotId: String,
+        authorId: String,
+        text: String,
+        enqueuedAt: Long,
+    ) {
+        queries.enqueuePendingPost(
+            id = id,
+            spot_id = spotId,
+            author_id = authorId,
+            text = text,
+            enqueued_at = enqueuedAt,
+        )
+    }
+
+    override fun pendingPosts(): List<PendingPostInsert> =
+        queries.selectPendingPosts { id, spotId, authorId, text, enqueuedAt ->
+            PendingPostInsert(
+                id = id,
+                spotId = spotId,
+                authorId = authorId,
+                text = text,
+                enqueuedAt = enqueuedAt,
+            )
+        }.executeAsList()
+
+    override fun dequeuePendingPost(id: String) {
+        queries.deletePendingPost(id)
+    }
+
+    override fun updatePostVote(postId: String, newScore: Int, newMyVote: String) {
+        val existing = getCachedPosts().firstOrNull { it.id == postId } ?: return
+        upsertPostRow(existing.copy(score = newScore, myVote = newMyVote))
+    }
+
+    override fun upsertPendingVote(postId: String, value: Int, enqueuedAt: Long) {
+        queries.upsertPendingVote(post_id = postId, vote_value = value.toLong(), enqueued_at = enqueuedAt)
+    }
+
+    override fun pendingVotes(): List<PendingVote> =
+        queries.selectPendingVotes { postId, value, enqueuedAt ->
+            PendingVote(postId = postId, value = value.toInt(), enqueuedAt = enqueuedAt)
+        }.executeAsList()
+
+    override fun dequeuePendingVote(postId: String) {
+        queries.deletePendingVote(postId)
     }
 
     private fun upsertPostRow(post: FeedPost) {

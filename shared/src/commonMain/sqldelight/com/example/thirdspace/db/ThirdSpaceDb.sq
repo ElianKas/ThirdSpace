@@ -1,7 +1,7 @@
 -- ThirdSpace offline cache database (SQLDelight 2.4.1).
 --
--- Phase D schema: the offline-first spot cache + an outbound pending-insert
--- queue for spots created while offline/unconfigured.
+-- The offline-first spot cache + an outbound pending-insert queue for spots
+-- created while offline/unconfigured.
 --
 -- STORAGE RULE (see steering/architecture.md): only the PERSISTED Spot fields
 -- live here. `checkInCount` and `placeholderColorArgb` are UI-only/derived and
@@ -80,9 +80,9 @@ countPendingInserts:
 SELECT count(*) FROM pendingSpotInserts;
 
 -- ===========================================================================
--- PHASE B: feed cache (posts read-only + comments read/write with an outbound
--- queue). ADDITIVE — the cachedSpots/pendingSpotInserts tables above are left
--- untouched. Mirrors the spots offline-first shape: a cache the UI reads
+-- Feed cache (posts read-only + comments read/write with an outbound queue),
+-- alongside the cachedSpots/pendingSpotInserts tables above. Mirrors the spots
+-- offline-first shape: a cache the UI reads
 -- synchronously, kept fresh by a background remote replace-all, plus an
 -- outbound pending-insert queue for comments created while offline.
 --
@@ -196,3 +196,79 @@ DELETE FROM pendingCommentInserts WHERE id = ?;
 
 countPendingComments:
 SELECT count(*) FROM pendingCommentInserts;
+
+-- ===========================================================================
+-- Post-creation + voting write-path tables (Phase B2), additive alongside the
+-- feed cache above. Mirrors the pendingCommentInserts outbound-queue shape.
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- pendingPostInserts: outbound queue of locally-created posts awaiting a
+-- successful remote insert into `public.posts`. A row stays here until its
+-- remote insert succeeds, then is deleted (dequeued). `enqueued_at` (epoch
+-- millis) orders the queue so inserts flush oldest-first. Mirrors
+-- pendingCommentInserts. NOTE: the optimistic cached post uses a LOCAL id; the
+-- real DB-generated post id arrives on the next remote replace-all refresh (the
+-- local-id optimistic row is naturally dropped by replaceAllPosts), so the
+-- queue carries only the fields needed to insert (spot_id/author_id/text) — the
+-- id here is the LOCAL id purely as the queue primary key / dequeue handle.
+-- ---------------------------------------------------------------------------
+CREATE TABLE pendingPostInserts (
+    id TEXT NOT NULL PRIMARY KEY,
+    spot_id TEXT NOT NULL,
+    author_id TEXT NOT NULL DEFAULT '',
+    text TEXT NOT NULL DEFAULT '',
+    enqueued_at INTEGER NOT NULL
+);
+
+-- ---------------------------------------------------------------------------
+-- pendingVotes: outbound queue of the user's LATEST vote intent per post. Keyed
+-- by post_id (one row per post) so a newer tap REPLACES the queued intent
+-- (latest-intent-wins via INSERT OR REPLACE on the post_id PK). `value` is the
+-- RESOLVED intent: 1 = upvote, -1 = downvote, 0 = CLEAR (delete the user's
+-- post_votes row). This differs from the remote `post_votes` table (which only
+-- stores +/-1); the queue additionally carries the "clear" intent so the flush
+-- can translate value 0 into a DELETE. `enqueued_at` (epoch millis) orders the
+-- flush oldest-first.
+-- ---------------------------------------------------------------------------
+CREATE TABLE pendingVotes (
+    post_id TEXT NOT NULL PRIMARY KEY,
+    vote_value INTEGER NOT NULL,
+    enqueued_at INTEGER NOT NULL
+);
+
+-- --- pendingPostInserts queries --------------------------------------------
+
+enqueuePendingPost:
+INSERT OR REPLACE INTO pendingPostInserts(id, spot_id, author_id, text, enqueued_at)
+VALUES (?, ?, ?, ?, ?);
+
+selectPendingPosts:
+SELECT id, spot_id, author_id, text, enqueued_at
+FROM pendingPostInserts
+ORDER BY enqueued_at ASC;
+
+deletePendingPost:
+DELETE FROM pendingPostInserts WHERE id = ?;
+
+countPendingPosts:
+SELECT count(*) FROM pendingPostInserts;
+
+-- --- pendingVotes queries --------------------------------------------------
+
+-- Latest-intent-wins: REPLACE by the post_id PK so two taps on the same post
+-- collapse to a single queued row carrying the most recent intent.
+upsertPendingVote:
+INSERT OR REPLACE INTO pendingVotes(post_id, vote_value, enqueued_at)
+VALUES (?, ?, ?);
+
+selectPendingVotes:
+SELECT post_id, vote_value, enqueued_at
+FROM pendingVotes
+ORDER BY enqueued_at ASC;
+
+deletePendingVote:
+DELETE FROM pendingVotes WHERE post_id = ?;
+
+countPendingVotes:
+SELECT count(*) FROM pendingVotes;

@@ -25,3 +25,6 @@ iosApp/Mapbox.xcconfig
 iosApp/Supabase.xcconfig
 iosApp/Secrets.xcconfig
 **/Secrets.plist
+
+# Semantic-review artifacts (generated review output, not source)
+semantic-review/

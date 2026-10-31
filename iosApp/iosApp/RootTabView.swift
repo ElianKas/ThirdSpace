@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// Four fully native tabs (no Compose):
 /// - "Posts":    the native SwiftUI feed (`NativeFeedView`).
-/// - "Map":      the native map base (`MapBaseView`) — no real map engine yet.
+/// - "Map":      the native Mapbox map (`MapBaseView`, wrapping the Mapbox Maps SDK).
 /// - "Discover": an inert placeholder for a future screen.
 /// - "Profile":  the native SwiftUI profile (`ProfileView`), wrapped in a
 ///   `NavigationStack` so it can push the "Profil bearbeiten" edit sub-page.

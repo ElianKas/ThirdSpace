@@ -145,6 +145,68 @@ class LocalFeedCacheDbTest {
         assertEquals(listOf("p2"), cache.pendingComments().map { it.id })
     }
 
+    // --- pendingPostInserts ---
+
+    @Test
+    fun pendingPostQueueEnqueueListDequeueRoundTrip() {
+        cache.enqueuePendingPost("lp2", "spot-1", "owner-1", "second", enqueuedAt = 200L)
+        cache.enqueuePendingPost("lp1", "spot-2", "owner-1", "", enqueuedAt = 100L)
+
+        val pending = cache.pendingPosts()
+        // Oldest-first by enqueued_at.
+        assertEquals(listOf("lp1", "lp2"), pending.map { it.id })
+        val first = pending.first()
+        assertEquals("spot-2", first.spotId)
+        assertEquals("owner-1", first.authorId)
+        assertEquals("", first.text) // empty text is allowed for posts
+        assertEquals(100L, first.enqueuedAt)
+
+        cache.dequeuePendingPost("lp1")
+        assertEquals(listOf("lp2"), cache.pendingPosts().map { it.id })
+    }
+
+    // --- pendingVotes (latest-intent-wins by post_id PK) ---
+
+    @Test
+    fun pendingVoteQueueUpsertListDequeueRoundTrip() {
+        cache.upsertPendingVote("post-b", value = -1, enqueuedAt = 200L)
+        cache.upsertPendingVote("post-a", value = 1, enqueuedAt = 100L)
+
+        val pending = cache.pendingVotes()
+        // Oldest-first by enqueued_at.
+        assertEquals(listOf("post-a", "post-b"), pending.map { it.postId })
+        assertEquals(1, pending.first().value)
+        assertEquals(100L, pending.first().enqueuedAt)
+
+        cache.dequeuePendingVote("post-a")
+        assertEquals(listOf("post-b"), cache.pendingVotes().map { it.postId })
+    }
+
+    @Test
+    fun pendingVoteLatestIntentReplacesByPostId() {
+        cache.upsertPendingVote("post-a", value = 1, enqueuedAt = 100L)
+        // A newer intent on the SAME post replaces the row (PK = post_id).
+        cache.upsertPendingVote("post-a", value = 0, enqueuedAt = 200L)
+        val pending = cache.pendingVotes()
+        assertEquals(1, pending.size)
+        assertEquals("post-a", pending.first().postId)
+        assertEquals(0, pending.first().value) // latest intent (clear) wins
+        assertEquals(200L, pending.first().enqueuedAt)
+    }
+
+    @Test
+    fun updatePostVoteRewritesScoreAndMyVoteInPlace() {
+        cache.replaceAllPosts(listOf(post("a", 100L)))
+        // Seed post() has score 42 / myVote "UP".
+        cache.updatePostVote("a", newScore = 7, newMyVote = "DOWN")
+        val read = cache.getCachedPosts().first { it.id == "a" }
+        assertEquals(7, read.score)
+        assertEquals("DOWN", read.myVote)
+        // No-op for an unknown post (no crash, no row created).
+        cache.updatePostVote("missing", newScore = 1, newMyVote = "UP")
+        assertEquals(1, cache.getCachedPosts().size)
+    }
+
     // --- end-to-end offline-then-flush over the REAL DB ---
 
     @Test
@@ -158,6 +220,14 @@ class LocalFeedCacheDbTest {
             override suspend fun insertComment(postId: String, authorId: String, text: String): Boolean {
                 if (!available) return false
                 inserted.add(text); return true
+            }
+            override suspend fun insertPost(spotId: String, authorId: String, text: String): Boolean {
+                if (!available) return false
+                return true
+            }
+            override suspend fun applyVote(postId: String, userId: String, value: Int): Boolean {
+                if (!available) return false
+                return true
             }
         }
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
@@ -174,9 +244,10 @@ class LocalFeedCacheDbTest {
         assertEquals(listOf("cmt-x"), cache.pendingComments().map { it.id })
         assertTrue(remote.inserted.isEmpty())
 
-        // Come online and read -> the queued insert flushes and dequeues.
+        // Come online and refresh -> the queued insert flushes and dequeues.
+        // (Reads are now pure; refresh(postId) is the explicit remote trigger.)
         remote.available = true
-        repo.getComments("post-1")
+        repo.refresh("post-1")
         assertEquals(listOf("hi"), remote.inserted)
         assertTrue(cache.pendingComments().isEmpty())
     }

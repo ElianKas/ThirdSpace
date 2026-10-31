@@ -133,8 +133,9 @@ class LocalSpotCacheDbTest {
         assertTrue(remote.inserted.isEmpty())
 
         // Come online and refresh -> the queued insert flushes and dequeues.
+        // (Reads are now pure; refresh() is the explicit remote trigger.)
         remote.available = true
-        repo.getSpots()
+        repo.refresh()
         assertEquals(listOf("x"), remote.inserted)
         assertTrue(cache.pendingInserts().isEmpty())
     }

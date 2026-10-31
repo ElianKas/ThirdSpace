@@ -23,9 +23,15 @@ import SwiftUI
 /// sheets (CreatePost, Comments, AddSpot) should reuse this `.sheet(item:)` +
 /// `.presentationDetents` pattern rather than inventing their own.
 ///
-/// V1 is intentionally visual only: every action is a no-op (`action: {}`).
-/// There is no vote/save/comment/route/share logic, no sub-sheets, no photo
-/// strip, and no "posts about this spot" section.
+/// The vote row, comment button, report button, and share control are wired to
+/// real logic: the vote row calls `FeedData.vote` and refreshes the in-sheet
+/// score/voteState, the comment button opens a nested Comments sub-sheet, the
+/// "Melden" button opens a nested Report sub-sheet, and "Teilen" uses a native
+/// `ShareLink` (with a static placeholder payload). The Route / Speichern /
+/// "Ich war hier" actions remain inert placeholders (`action: {}`). The photo
+/// area and description are still placeholder content (the spot model has no
+/// `description` or photo strip yet), and there is no "posts about this spot"
+/// section.
 struct SpotSheetView: View {
     @Environment(Localization.self) private var loc
     let post: UIPost
@@ -37,6 +43,19 @@ struct SpotSheetView: View {
     /// Drives the nested Report ("Melden") sheet, opened from the share/report
     /// row below. Mirrors the comments sheet pattern.
     @State private var showReport = false
+
+    /// In-sheet live copies of the vote display, seeded from the presented
+    /// `post` and refreshed from `FeedData.posts()` in the vote completion so
+    /// the optimistic score/voteState show here too (the sheet is presented
+    /// from an immutable `post`, so it can't observe the feed's re-read).
+    @State private var displayScore: Int
+    @State private var displayVoteState: String
+
+    init(post: UIPost) {
+        self.post = post
+        _displayScore = State(initialValue: post.score)
+        _displayVoteState = State(initialValue: post.voteState)
+    }
 
     var body: some View {
         ScrollView {
@@ -124,7 +143,25 @@ struct SpotSheetView: View {
 
             Spacer()
 
-            VoteControlView(score: post.score, voteState: post.voteState)
+            VoteControlView(
+                score: displayScore,
+                voteState: displayVoteState,
+                onUp: { vote(1) },
+                onDown: { vote(-1) }
+            )
+        }
+    }
+
+    /// Register a vote tap through the flat bridge, then refresh the in-sheet
+    /// vote display from the matching re-read post. The feed list updates via
+    /// its own `onVote` / `observeFeed` path; here we only refresh the local
+    /// copies so the sheet reflects the same optimistic state.
+    private func vote(_ direction: Int) {
+        FeedData.vote(postId: post.id, direction: direction) {
+            if let updated = FeedData.posts().first(where: { $0.id == post.id }) {
+                displayScore = updated.score
+                displayVoteState = updated.voteState
+            }
         }
     }
 

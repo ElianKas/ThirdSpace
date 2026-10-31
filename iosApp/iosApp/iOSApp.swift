@@ -21,7 +21,7 @@ struct iOSApp: App {
         _session = State(initialValue: Session())
     }
 
-    /// Phase A: read the Supabase project URL + publishable key from Info.plist (seeded
+    /// Read the Supabase project URL + publishable key from Info.plist (seeded
     /// from the gitignored `Supabase.xcconfig`) and hand them to the shared
     /// `FeedBridge`. The shared `SupabaseClientProvider` treats empty/placeholder
     /// values as "not configured" and builds no client, so the app launches

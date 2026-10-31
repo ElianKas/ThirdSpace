@@ -138,6 +138,12 @@ struct CommentsSheetView: View {
         guard !didLoad else { return }
         comments = FeedData.comments(postId: post.id)
         didLoad = true
+        // Reads are now pure cache reads shared-side (no refresh-on-read, to
+        // kill the per-second GET loop), so explicitly pull this post's
+        // comments from the backend once and re-read when it completes.
+        FeedData.loadComments(postId: post.id) {
+            comments = FeedData.comments(postId: post.id)
+        }
     }
 
     /// Persist via the shared bridge. The shared layer already does the
