@@ -43,22 +43,22 @@ struct ProfileView: View {
                     .padding(.bottom, -35)
 
                 identity
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
+                    .padding(.horizontal, AppDimens.spacingXL)
+                    .padding(.top, AppDimens.spacingMD)
 
                 statsRow
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.horizontal, AppDimens.spacingXL)
+                    .padding(.top, AppDimens.spacingLG)
 
                 editButton
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
+                    .padding(.horizontal, AppDimens.spacingXL)
+                    .padding(.top, AppDimens.spacingLG)
 
                 tabBar
-                    .padding(.top, 20)
+                    .padding(.top, AppDimens.spacingXL)
 
                 tabContent
-                    .padding(.top, 8)
+                    .padding(.top, AppDimens.spacingSM)
             }
         }
         .background(AppColor.background)
@@ -73,7 +73,7 @@ struct ProfileView: View {
         // WITHOUT reserving a strip that would push the borderless banner down.
         .overlay(alignment: .topTrailing) {
             languageButton
-                .padding(.trailing, 16)
+                .padding(.trailing, AppDimens.spacingLG)
                 .padding(.top, AppLayout.topChromeSpacing)
         }
         // This screen is inside the Profile tab's NavigationStack (so the edit
@@ -105,8 +105,8 @@ struct ProfileView: View {
         .frame(height: 140)
         .clipShape(
             .rect(
-                bottomLeadingRadius: 20,
-                bottomTrailingRadius: 20
+                bottomLeadingRadius: AppDimens.radiusLG,
+                bottomTrailingRadius: AppDimens.radiusLG
             )
         )
     }
@@ -135,20 +135,20 @@ struct ProfileView: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Text(loc.languageCode.uppercased())
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: AppTypography.footnote, weight: .semibold))
                 Image(systemName: "globe")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
             }
             .foregroundColor(AppColor.foreground)
-            .padding(.horizontal, 12)
+            .padding(.horizontal, AppDimens.spacingMD)
             .frame(height: 34)
             .background(
                 Capsule().fill(AppColor.frostStrong)
             )
             .overlay(
-                Capsule().stroke(AppColor.border, lineWidth: 1)
+                Capsule().stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
         .accessibilityLabel(loc.strings.languageMenu)
@@ -167,31 +167,31 @@ struct ProfileView: View {
     // MARK: Identity (name / @username / location+joined / bio)
 
     private var identity: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingSM) {
             Text(profile.name)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: AppTypography.titleLarge, weight: .bold))
                 .foregroundColor(AppColor.foreground)
 
             Text("@\(profile.username)")
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.mutedForeground)
 
-            HStack(spacing: 4) {
+            HStack(spacing: AppDimens.spacingXS) {
                 Image(systemName: "mappin")
-                    .font(.system(size: 13))
+                    .font(.system(size: AppTypography.footnote))
                     .foregroundColor(AppColor.brand)
                 // City is dynamic content; "seit"/"since" comes from i18n.
                 Text("\(profile.city) · \(loc.strings.joinedSince(monthYear: profile.monthYear))")
-                    .font(.system(size: 13))
+                    .font(.system(size: AppTypography.footnote))
                     .foregroundColor(AppColor.mutedForeground)
             }
-            .padding(.top, 2)
+            .padding(.top, AppDimens.spacingXS)
 
             Text(profile.bio)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.bodyText)
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 4)
+                .padding(.top, AppDimens.spacingXS)
         }
     }
 
@@ -216,17 +216,17 @@ struct ProfileView: View {
             ProfileEditView()
         } label: {
             Text(loc.strings.profileEdit)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, AppDimens.spacingMD)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
                         .fill(AppColor.page)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(AppColor.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
+                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
                 )
         }
         .buttonStyle(.plain)
@@ -242,7 +242,7 @@ struct ProfileView: View {
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppColor.hairline)
-                .frame(height: 1)
+                .frame(height: AppDimens.hairline)
         }
     }
 
@@ -251,9 +251,9 @@ struct ProfileView: View {
         return Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: AppDimens.spacingSM) {
                 Text(title)
-                    .font(.system(size: 14, weight: active ? .semibold : .regular))
+                    .font(.system(size: AppTypography.body, weight: active ? .semibold : .regular))
                     .foregroundColor(active ? AppColor.brand : AppColor.mutedForeground)
                 Rectangle()
                     .fill(active ? AppColor.brand : Color.clear)
@@ -263,7 +263,7 @@ struct ProfileView: View {
             // (text + indicator + surrounding space) is a comfortable tap
             // target, then make that entire rectangle hit-testable.
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, AppDimens.spacingSM)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -293,7 +293,7 @@ struct ProfileView: View {
                         if index < posts.count - 1 {
                             Rectangle()
                                 .fill(AppColor.hairline)
-                                .frame(height: 1)
+                                .frame(height: AppDimens.hairline)
                         }
                     }
                 }
@@ -314,8 +314,8 @@ struct ProfileView: View {
                     ProfileSpotRow(spot: spot)
                     Rectangle()
                         .fill(AppColor.hairline)
-                        .frame(height: 1)
-                        .padding(.leading, 20)
+                        .frame(height: AppDimens.hairline)
+                        .padding(.leading, AppDimens.spacingXL)
                 }
             }
         }
@@ -323,10 +323,10 @@ struct ProfileView: View {
 
     private func emptyState(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 14))
+            .font(.system(size: AppTypography.body))
             .foregroundColor(AppColor.mutedForeground)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 48)
+            .padding(.vertical, AppDimens.spacingXXL)
     }
 
     /// Distinct spots derived from the feed posts, keyed by spot name.
@@ -356,13 +356,13 @@ private struct StatColumn: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: AppDimens.spacingXS) {
             // Plain number, no count-up animation (deliberately excluded).
             Text("\(value)")
-                .font(.system(size: 18, weight: .bold))
+                .font(.system(size: AppTypography.title, weight: .bold))
                 .foregroundColor(AppColor.foreground)
             Text(label)
-                .font(.system(size: 12))
+                .font(.system(size: AppTypography.caption))
                 .foregroundColor(AppColor.mutedForeground)
         }
         .frame(maxWidth: .infinity)
@@ -383,23 +383,23 @@ private struct ProfileSpotRow: View {
     let spot: ProfileSpot
 
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 8)
+        HStack(spacing: AppDimens.spacingMD) {
+            RoundedRectangle(cornerRadius: AppDimens.radiusSM)
                 .fill(Color(hex: spot.colorHex))
                 .frame(width: 44, height: 44)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 Text(spot.name)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                     .foregroundColor(AppColor.foreground)
                 Text("\(spot.category) · \(spot.neighborhood)")
-                    .font(.system(size: 13))
+                    .font(.system(size: AppTypography.footnote))
                     .foregroundColor(AppColor.mutedForeground)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.horizontal, AppDimens.spacingXL)
+        .padding(.vertical, AppDimens.spacingMD)
     }
 }

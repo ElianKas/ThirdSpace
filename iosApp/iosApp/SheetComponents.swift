@@ -16,15 +16,15 @@ struct CategoryPill: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 12, weight: .medium))
+            .font(.system(size: AppTypography.caption, weight: .medium))
             .foregroundColor(AppColor.foreground)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, AppDimens.spacingMD)
+            .padding(.vertical, AppDimens.spacingSM)
             .background(
                 Capsule().fill(AppColor.surface)
             )
             .overlay(
-                Capsule().stroke(AppColor.border, lineWidth: 1)
+                Capsule().stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
     }
 }
@@ -43,23 +43,23 @@ struct SheetActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: AppTypography.footnote, weight: .semibold))
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, AppDimens.spacingMD)
             .foregroundColor(style == .primary ? .white : AppColor.foreground)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(style == .primary ? AppColor.brand : AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(style == .primary ? Color.clear : AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(style == .primary ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -76,24 +76,24 @@ struct SheetWideButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, AppDimens.spacingMD)
+            .padding(.horizontal, AppDimens.spacingLG)
             .foregroundColor(AppColor.foreground)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -109,20 +109,20 @@ struct CommentRow: View {
     let comment: UIComment
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: AppDimens.spacingMD) {
             AvatarView(name: comment.authorName, size: 32)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 HStack(spacing: 0) {
                     Text(comment.authorName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: AppTypography.footnote, weight: .semibold))
                         .foregroundColor(AppColor.foreground)
                     Text(" · \(comment.timeLabel)")
-                        .font(.system(size: 13))
+                        .font(.system(size: AppTypography.footnote))
                         .foregroundColor(AppColor.textFaint)
                 }
                 Text(comment.text)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.bodyText)
                     .fixedSize(horizontal: false, vertical: true)
             }

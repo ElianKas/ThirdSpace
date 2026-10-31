@@ -43,22 +43,22 @@ struct SheetScaffold<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             if title != nil || onClose != nil {
                 titleRow
-                    .padding(.bottom, 16)
+                    .padding(.bottom, AppDimens.spacingLG)
             }
             content
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, AppDimens.spacingLG)
         // Top padding so content sits below the sheet's drag indicator.
-        .padding(.top, 20)
-        .padding(.bottom, 24)
+        .padding(.top, AppDimens.spacingXL)
+        .padding(.bottom, AppDimens.spacingXL)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var titleRow: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: AppDimens.spacingSM) {
             if let title {
                 Text(title)
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: AppTypography.titleLarge, weight: .bold))
                     .foregroundColor(AppColor.foreground)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -68,11 +68,11 @@ struct SheetScaffold<Content: View>: View {
             if let onClose {
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: AppTypography.body, weight: .semibold))
                         .foregroundColor(AppColor.mutedForeground)
-                        .padding(8)
+                        .padding(AppDimens.spacingSM)
                         .background(Circle().fill(AppColor.surface))
-                        .overlay(Circle().stroke(AppColor.border, lineWidth: 1))
+                        .overlay(Circle().stroke(AppColor.border, lineWidth: AppDimens.hairline))
                 }
                 .buttonStyle(.plain)
             }

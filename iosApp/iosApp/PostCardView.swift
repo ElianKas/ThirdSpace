@@ -23,20 +23,20 @@ struct PostCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             spotHeader
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
+                .padding(.horizontal, AppDimens.spacingLG)
+                .padding(.top, AppDimens.spacingLG)
 
             placeholder
-                .padding(.top, 12)
+                .padding(.top, AppDimens.spacingMD)
 
             attributionRow
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, AppDimens.spacingLG)
+                .padding(.vertical, AppDimens.spacingMD)
 
             actionRow
-                .padding(.horizontal, 16)
+                .padding(.horizontal, AppDimens.spacingLG)
         }
-        .padding(.bottom, 24)
+        .padding(.bottom, AppDimens.spacingXL)
         .contentShape(Rectangle())
         .onTapGesture { onTap?() }
     }
@@ -44,29 +44,29 @@ struct PostCardView: View {
     // MARK: 1. Spot header
 
     private var spotHeader: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 4) {
+        HStack(alignment: .top, spacing: AppDimens.spacingSM) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
+                HStack(spacing: AppDimens.spacingXS) {
                     Text(post.spotName)
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.system(size: AppTypography.title, weight: .bold))
                         .foregroundColor(AppColor.foreground)
                         .fixedSize(horizontal: false, vertical: true)
                     if post.verified {
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 13))
+                            .font(.system(size: AppTypography.footnote))
                             .foregroundColor(AppColor.secondary)
                     }
                 }
                 Text("\(post.category) · \(post.neighborhood) · \(post.checkInCount) \(loc.strings.checkInLabel(count: Int32(post.checkInCount)))")
-                    .font(.system(size: 12))
+                    .font(.system(size: AppTypography.caption))
                     .foregroundColor(AppColor.mutedForeground)
             }
 
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
 
-            HStack(spacing: 12) {
+            HStack(spacing: AppDimens.spacingMD) {
                 Image(systemName: "bookmark")
-                    .font(.system(size: 17))
+                    .font(.system(size: AppTypography.title))
                     .foregroundColor(AppColor.foreground)
             }
         }
@@ -83,21 +83,21 @@ struct PostCardView: View {
     // MARK: 3. Attribution
 
     private var attributionRow: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: AppDimens.spacingSM) {
             AvatarView(name: post.authorName, size: 28)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 HStack(spacing: 0) {
                     Text(post.authorName)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: AppTypography.footnote, weight: .medium))
                         .foregroundColor(AppColor.foreground)
                     Text(" · \(post.dateLabel)")
-                        .font(.system(size: 13))
+                        .font(.system(size: AppTypography.footnote))
                         .foregroundColor(AppColor.textFaint)
                 }
                 if post.hasText {
                     Text("„\(post.text)\u{201C}")
-                        .font(.system(size: 14))
+                        .font(.system(size: AppTypography.body))
                         .foregroundColor(AppColor.bodyText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -115,25 +115,25 @@ struct PostCardView: View {
 
             Spacer().frame(width: 20)
 
-            HStack(spacing: 4) {
+            HStack(spacing: AppDimens.spacingXS) {
                 Image(systemName: "bubble.left")
-                    .font(.system(size: 17))
+                    .font(.system(size: AppTypography.title))
                     .foregroundColor(AppColor.mutedForeground)
                 if post.commentCount > 0 {
                     Text("\(post.commentCount)")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: AppTypography.footnote, weight: .semibold))
                         .foregroundColor(AppColor.mutedForeground)
                 }
             }
 
             Spacer()
 
-            HStack(spacing: 4) {
+            HStack(spacing: AppDimens.spacingXS) {
                 Image(systemName: "mappin")
-                    .font(.system(size: 15))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.brand)
                 Text(post.neighborhood)
-                    .font(.system(size: 13))
+                    .font(.system(size: AppTypography.footnote))
                     .foregroundColor(AppColor.mutedForeground)
             }
         }
@@ -152,15 +152,15 @@ struct VoteControlView: View {
     private var downActive: Bool { voteState == "DOWN" }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppDimens.spacingSM) {
             Image(systemName: "arrow.up")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(upActive ? AppColor.brand : AppColor.mutedForeground)
             Text("\(score)")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
             Image(systemName: "arrow.down")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(downActive ? AppColor.secondary : AppColor.mutedForeground)
         }
     }

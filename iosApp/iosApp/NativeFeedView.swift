@@ -41,7 +41,7 @@ struct NativeFeedView: View {
                         if index < posts.count - 1 {
                             Rectangle()
                                 .fill(AppColor.hairline)
-                                .frame(height: 1)
+                                .frame(height: AppDimens.hairline)
                         }
                     }
                     .listRowInsets(EdgeInsets())      // edge-to-edge, full-bleed
@@ -91,42 +91,42 @@ struct NativeFeedView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                     Text(loc.strings.feedEyebrow)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(.system(size: AppTypography.caption, weight: .semibold))
                         .tracking(1.2)
                         .foregroundColor(AppColor.textFaint)
                     Text(loc.strings.feedTitle)
-                        .font(.system(size: 28, weight: .bold))
+                        .font(.system(size: AppTypography.headline, weight: .bold))
                         .foregroundColor(AppColor.foreground)
                 }
 
                 Spacer()
 
-                HStack(spacing: 20) {
+                HStack(spacing: AppDimens.spacingXL) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 18))
+                        .font(.system(size: AppTypography.title))
                         .foregroundColor(AppColor.foreground)
                     Button {
                         showCreate = true
                     } label: {
                         Image(systemName: "square.and.pencil")
-                            .font(.system(size: 18))
+                            .font(.system(size: AppTypography.title))
                             .foregroundColor(AppColor.foreground)
                     }
                     .buttonStyle(.plain)
                     Image(systemName: "bell")
-                        .font(.system(size: 18))
+                        .font(.system(size: AppTypography.title))
                         .foregroundColor(AppColor.foreground)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 12)
+            .padding(.horizontal, AppDimens.spacingXL)
+            .padding(.top, AppDimens.spacingMD)
+            .padding(.bottom, AppDimens.spacingMD)
 
             Rectangle()
                 .fill(AppColor.hairline)
-                .frame(height: 1)
+                .frame(height: AppDimens.hairline)
         }
         // Opaque background behind the pinned header so rows do not show through
         // as they scroll under it.

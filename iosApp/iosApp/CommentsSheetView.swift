@@ -30,9 +30,9 @@ struct CommentsSheetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
-                .padding(.horizontal, 16)
-                .padding(.top, 20)
-                .padding(.bottom, 12)
+                .padding(.horizontal, AppDimens.spacingLG)
+                .padding(.top, AppDimens.spacingXL)
+                .padding(.bottom, AppDimens.spacingMD)
 
             Divider()
                 .overlay(AppColor.hairline)
@@ -47,8 +47,8 @@ struct CommentsSheetView: View {
                 .overlay(AppColor.hairline)
 
             inputRow
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, AppDimens.spacingLG)
+                .padding(.vertical, AppDimens.spacingMD)
         }
         .background(AppColor.background)
         .onAppear(perform: loadIfNeeded)
@@ -58,7 +58,7 @@ struct CommentsSheetView: View {
 
     private var header: some View {
         Text(loc.strings.commentsHeader(count: Int32(comments.count)))
-            .font(.system(size: 20, weight: .bold))
+            .font(.system(size: AppTypography.titleLarge, weight: .bold))
             .foregroundColor(AppColor.foreground)
     }
 
@@ -66,13 +66,13 @@ struct CommentsSheetView: View {
 
     private var list: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            LazyVStack(alignment: .leading, spacing: AppDimens.spacingXL) {
                 ForEach(comments) { comment in
                     CommentRow(comment: comment)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 16)
+            .padding(.horizontal, AppDimens.spacingLG)
+            .padding(.vertical, AppDimens.spacingLG)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -80,41 +80,41 @@ struct CommentsSheetView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: AppDimens.spacingMD) {
             Image(systemName: "bubble.left")
-                .font(.system(size: 28))
+                .font(.system(size: AppTypography.headline))
                 .foregroundColor(AppColor.textFaint)
             Text(loc.strings.commentsEmpty)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.mutedForeground)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, 32)
+        .padding(.horizontal, AppDimens.spacingXXL)
     }
 
     // MARK: Input row
 
     private var inputRow: some View {
-        HStack(alignment: .bottom, spacing: 10) {
+        HStack(alignment: .bottom, spacing: AppDimens.spacingMD) {
             TextField(loc.strings.commentPlaceholder, text: $draft, axis: .vertical)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.foreground)
                 .lineLimit(1...4)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.horizontal, AppDimens.spacingLG)
+                .padding(.vertical, AppDimens.spacingMD)
                 .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusLG, style: .continuous)
                         .fill(AppColor.surface)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusLG, style: .continuous)
+                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
                 )
 
             Button(action: send) {
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: AppTypography.title, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(width: 40, height: 40)
                     .background(

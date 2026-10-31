@@ -35,7 +35,7 @@ struct CreatePostView: View {
     var body: some View {
         ScrollView {
             SheetScaffold(title: loc.strings.createTitle, onClose: closeAction) {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: AppDimens.spacingXL) {
                     subtitle
                     spotSection
                     captionSection
@@ -52,7 +52,7 @@ struct CreatePostView: View {
 
     private var subtitle: some View {
         Text(loc.strings.createSubtitle)
-            .font(.system(size: 14))
+            .font(.system(size: AppTypography.body))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -66,9 +66,9 @@ struct CreatePostView: View {
     }
 
     private var spotSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(loc.strings.createSpotLabel)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
             if let selectedSpot {
@@ -87,127 +87,127 @@ struct CreatePostView: View {
                         if spot.id != filteredSpots.last?.id {
                             Rectangle()
                                 .fill(AppColor.hairline)
-                                .frame(height: 1)
+                                .frame(height: AppDimens.hairline)
                         }
                     }
                 }
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                         .fill(AppColor.surface)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
                 )
             }
         }
     }
 
     private var searchField: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppDimens.spacingSM) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.textFaint)
             TextField(loc.strings.createSpotSearch, text: $searchText)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.foreground)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, AppDimens.spacingMD)
+        .padding(.vertical, AppDimens.spacingMD)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                 .fill(AppColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
     private func spotPickRow(_ spot: SpotOption) -> some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: AppDimens.spacingMD) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 Text(spot.name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: AppTypography.body, weight: .medium))
                     .foregroundColor(AppColor.foreground)
                 Text(spot.neighborhood)
-                    .font(.system(size: 12))
+                    .font(.system(size: AppTypography.caption))
                     .foregroundColor(AppColor.mutedForeground)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
             CategoryPill(label: spot.category)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, AppDimens.spacingMD)
+        .padding(.vertical, AppDimens.spacingMD)
         .contentShape(Rectangle())
     }
 
     private func selectedSpotRow(_ spot: SpotOption) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AppDimens.spacingMD) {
             Image(systemName: "mappin.circle.fill")
-                .font(.system(size: 18))
+                .font(.system(size: AppTypography.title))
                 .foregroundColor(AppColor.brand)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 Text(spot.name)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                     .foregroundColor(AppColor.foreground)
                 Text("\(spot.category) · \(spot.neighborhood)")
-                    .font(.system(size: 12))
+                    .font(.system(size: AppTypography.caption))
                     .foregroundColor(AppColor.mutedForeground)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
             Button {
                 selectedSpot = nil
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 18))
+                    .font(.system(size: AppTypography.title))
                     .foregroundColor(AppColor.textFaint)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 12)
+        .padding(.horizontal, AppDimens.spacingMD)
+        .padding(.vertical, AppDimens.spacingMD)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                 .fill(AppColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
     // MARK: Caption
 
     private var captionSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(loc.strings.createTextLabel)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
             ZStack(alignment: .topLeading) {
                 if caption.isEmpty {
                     Text(loc.strings.createCaptionPlaceholder)
-                        .font(.system(size: 14))
+                        .font(.system(size: AppTypography.body))
                         .foregroundColor(AppColor.textFaint)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, AppDimens.spacingLG)
+                        .padding(.vertical, AppDimens.spacingMD)
                 }
                 TextEditor(text: $caption)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.foreground)
                     .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, AppDimens.spacingMD)
+                    .padding(.vertical, AppDimens.spacingSM)
                     .frame(minHeight: 100)
             }
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
     }
@@ -216,27 +216,27 @@ struct CreatePostView: View {
 
     private var photoPlaceholder: some View {
         Button(action: {}) {
-            HStack(spacing: 10) {
+            HStack(spacing: AppDimens.spacingMD) {
                 Image(systemName: "photo.badge.plus")
-                    .font(.system(size: 18))
+                    .font(.system(size: AppTypography.title))
                     .foregroundColor(AppColor.mutedForeground)
                 Text(loc.strings.createAddPhoto)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: AppTypography.body, weight: .medium))
                     .foregroundColor(AppColor.mutedForeground)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
-            .padding(.horizontal, 14)
+            .padding(.vertical, AppDimens.spacingXL)
+            .padding(.horizontal, AppDimens.spacingLG)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.page)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .strokeBorder(
                         AppColor.border,
-                        style: StrokeStyle(lineWidth: 1, dash: [5])
+                        style: StrokeStyle(lineWidth: AppDimens.hairline, dash: [5])
                     )
             )
         }
@@ -246,12 +246,12 @@ struct CreatePostView: View {
     // MARK: Visibility toggle (local, visual)
 
     private var visibilitySection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(loc.strings.createVisibility)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
-            HStack(spacing: 10) {
+            HStack(spacing: AppDimens.spacingMD) {
                 visibilityOption(.publicEveryone, icon: "globe", label: loc.strings.visibilityPublic)
                 visibilityOption(.friends, icon: "person.2", label: loc.strings.visibilityFriends)
             }
@@ -263,26 +263,26 @@ struct CreatePostView: View {
         return Button {
             visibility = value
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(label)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: AppTypography.footnote, weight: .semibold))
                 if active {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.system(size: AppTypography.caption, weight: .bold))
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
+            .padding(.vertical, AppDimens.spacingMD)
             .foregroundColor(active ? .white : AppColor.foreground)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(active ? AppColor.brand : AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(active ? Color.clear : AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(active ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
         .buttonStyle(.plain)

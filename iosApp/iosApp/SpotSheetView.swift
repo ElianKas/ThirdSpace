@@ -40,7 +40,7 @@ struct SpotSheetView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingLG) {
                 photo
                 badgeRow
                 title
@@ -50,10 +50,10 @@ struct SpotSheetView: View {
                 commentButton
                 shareAndReportRow
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppDimens.spacingLG)
             // Top padding so the content sits below the sheet's drag indicator.
-            .padding(.top, 20)
-            .padding(.bottom, 24)
+            .padding(.top, AppDimens.spacingXL)
+            .padding(.bottom, AppDimens.spacingXL)
         }
         .background(AppColor.background)
         // Nested Comments sheet. Follows the project sheet pattern: the
@@ -78,17 +78,17 @@ struct SpotSheetView: View {
         Color(hex: post.colorHex)
             .aspectRatio(4.0 / 3.0, contentMode: .fit)
             .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous))
     }
 
     // MARK: 2. Badge row
 
     private var badgeRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppDimens.spacingSM) {
             CategoryPill(label: post.category)
             if post.verified {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: AppTypography.title))
                     .foregroundColor(AppColor.secondary)
             }
             Spacer(minLength: 0)
@@ -98,14 +98,14 @@ struct SpotSheetView: View {
     // MARK: 3. Title
 
     private var title: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: AppDimens.spacingSM) {
             Text(post.spotName)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: AppTypography.titleLarge, weight: .bold))
                 .foregroundColor(AppColor.foreground)
                 .fixedSize(horizontal: false, vertical: true)
             if post.verified {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 15))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.secondary)
             }
         }
@@ -114,12 +114,12 @@ struct SpotSheetView: View {
     // MARK: 4. Meta + vote row
 
     private var metaAndVoteRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: AppDimens.spacingSM) {
             Image(systemName: "mappin")
-                .font(.system(size: 15))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.brand)
             Text(post.neighborhood)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.mutedForeground)
 
             Spacer()
@@ -133,7 +133,7 @@ struct SpotSheetView: View {
     // Placeholder: UIPost has no description field yet (V1).
     private var description: some View {
         Text(loc.strings.spotNoDescription)
-            .font(.system(size: 14))
+            .font(.system(size: AppTypography.body))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -141,7 +141,7 @@ struct SpotSheetView: View {
     // MARK: 6. Action row
 
     private var actionRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AppDimens.spacingMD) {
             SheetActionButton(
                 icon: "arrow.triangle.turn.up.right.diamond",
                 label: loc.strings.actionRoute,
@@ -183,7 +183,7 @@ struct SpotSheetView: View {
     /// opens the Report sheet. The comment button above remains its own
     /// full-width row.
     private var shareAndReportRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AppDimens.spacingMD) {
             reportButton
 
             shareControl
@@ -201,23 +201,23 @@ struct SpotSheetView: View {
             subject: Text(post.spotName),
             message: Text(loc.strings.shareMessage(spotName: post.spotName))
         ) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(loc.strings.share)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, AppDimens.spacingLG)
             .frame(maxWidth: .infinity, minHeight: Self.shareReportRowHeight)
             .foregroundColor(AppColor.foreground)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
     }
@@ -235,16 +235,16 @@ struct SpotSheetView: View {
             showReport = true
         } label: {
             Image(systemName: "flag")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(AppColor.destructive)
                 .frame(width: Self.shareReportRowHeight, height: Self.shareReportRowHeight)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                         .fill(AppColor.surface)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
                 )
         }
         .buttonStyle(.plain)

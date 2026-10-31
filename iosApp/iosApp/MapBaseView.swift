@@ -26,7 +26,7 @@ struct MapBaseView: View {
             AppColor.page.ignoresSafeArea()
 
             Text(loc.strings.mapPlaceholder)
-                .font(.system(size: 15))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.textFaint)
 
             // Bottom-left vertical control stack
@@ -37,8 +37,8 @@ struct MapBaseView: View {
                     Spacer()
                 }
             }
-            .padding(.leading, 16)
-            .padding(.bottom, 32)
+            .padding(.leading, AppDimens.spacingLG)
+            .padding(.bottom, AppDimens.spacingXXL)
 
             // Bottom-right FAB
             VStack {
@@ -48,8 +48,8 @@ struct MapBaseView: View {
                     fab
                 }
             }
-            .padding(.trailing, 16)
-            .padding(.bottom, 32)
+            .padding(.trailing, AppDimens.spacingLG)
+            .padding(.bottom, AppDimens.spacingXXL)
         }
         // Top controls (search bar + filter chips) placed BELOW the real top
         // safe-area inset via `.topChrome` so they clear the status bar /
@@ -57,36 +57,36 @@ struct MapBaseView: View {
         // background borderless to the top. The gap uses the shared
         // `AppLayout.topChromeSpacing` token (no fixed 12pt magic number).
         .topChrome(alignment: .leading) {
-            VStack(spacing: 8) {
+            VStack(spacing: AppDimens.spacingSM) {
                 searchBar
                 filterChips
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, AppDimens.spacingLG)
         }
     }
 
     // MARK: Frosted search bar
 
     private var searchBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppDimens.spacingSM) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 16))
+                .font(.system(size: AppTypography.title))
                 .foregroundColor(AppColor.mutedForeground)
             Text(loc.strings.mapSearchPlaceholder)
-                .font(.system(size: 15))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.textFaint)
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
             AvatarView(name: "Du", size: 24)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, AppDimens.spacingMD)
         .frame(height: 44)
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD)
                 .fill(AppColor.frost)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
@@ -94,7 +94,7 @@ struct MapBaseView: View {
 
     private var filterChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 ForEach(filters) { chip in
                     FilterChipView(label: chip.label, active: chip.active)
                 }
@@ -109,24 +109,24 @@ struct MapBaseView: View {
             mapControl(systemImage: "location")
             Rectangle()
                 .fill(AppColor.hairline)
-                .frame(width: 44, height: 1)
+                .frame(width: 44, height: AppDimens.hairline)
             mapControl(systemImage: "person.2")
         }
         .background(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD)
                 .fill(AppColor.frost)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .clipShape(RoundedRectangle(cornerRadius: AppDimens.radiusMD))
     }
 
     private func mapControl(systemImage: String) -> some View {
         Button(action: { /* no-op */ }) {
             Image(systemName: systemImage)
-                .font(.system(size: 16))
+                .font(.system(size: AppTypography.title))
                 .foregroundColor(AppColor.foreground)
                 .frame(width: 44, height: 44)
         }
@@ -138,7 +138,7 @@ struct MapBaseView: View {
     private var fab: some View {
         Button(action: { /* no-op */ }) {
             Image(systemName: "plus")
-                .font(.system(size: 24, weight: .semibold))
+                .font(.system(size: AppTypography.titleLarge, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: 52, height: 52)
                 .background(Circle().fill(AppColor.brand))
@@ -158,15 +158,15 @@ struct FilterChipView: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 13, weight: .medium))
+            .font(.system(size: AppTypography.footnote, weight: .medium))
             .foregroundColor(active ? .white : AppColor.foreground)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, AppDimens.spacingLG)
             .frame(height: 30)
             .background(
                 Capsule().fill(active ? AppColor.brand : AppColor.frost)
             )
             .overlay(
-                Capsule().stroke(active ? Color.clear : AppColor.border, lineWidth: 1)
+                Capsule().stroke(active ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
             )
     }
 }

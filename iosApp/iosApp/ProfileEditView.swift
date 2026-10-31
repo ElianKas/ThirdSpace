@@ -51,12 +51,12 @@ struct ProfileEditView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 tabBar
-                    .padding(.top, 8)
+                    .padding(.top, AppDimens.spacingSM)
 
                 tabContent
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                    .padding(.bottom, 32)
+                    .padding(.horizontal, AppDimens.spacingXL)
+                    .padding(.top, AppDimens.spacingXL)
+                    .padding(.bottom, AppDimens.spacingXXL)
             }
         }
         .background(AppColor.background)
@@ -74,7 +74,7 @@ struct ProfileEditView: View {
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(AppColor.hairline)
-                .frame(height: 1)
+                .frame(height: AppDimens.hairline)
         }
     }
 
@@ -83,9 +83,9 @@ struct ProfileEditView: View {
         return Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 8) {
+            VStack(spacing: AppDimens.spacingSM) {
                 Text(title)
-                    .font(.system(size: 14, weight: active ? .semibold : .regular))
+                    .font(.system(size: AppTypography.body, weight: active ? .semibold : .regular))
                     .foregroundColor(active ? AppColor.brand : AppColor.mutedForeground)
                 Rectangle()
                     .fill(active ? AppColor.brand : Color.clear)
@@ -93,7 +93,7 @@ struct ProfileEditView: View {
             }
             // Full-width, comfortably padded, fully hit-testable tap target.
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .padding(.vertical, AppDimens.spacingSM)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -114,7 +114,7 @@ struct ProfileEditView: View {
     // MARK: Profil tab
 
     private var profileTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingXL) {
             bannerRow
             avatarRow
             EditField(label: loc.strings.fieldName) {
@@ -140,7 +140,7 @@ struct ProfileEditView: View {
     /// Banner placeholder: a short gradient strip + two no-op actions. No real
     /// picker. Built only from AppColor tokens (no raw hex literals).
     private var bannerRow: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             LinearGradient(
                 colors: [
                     AppColor.brand.opacity(0.85),
@@ -151,9 +151,9 @@ struct ProfileEditView: View {
                 endPoint: .bottomTrailing
             )
             .frame(height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous))
 
-            HStack(spacing: 10) {
+            HStack(spacing: AppDimens.spacingMD) {
                 SheetActionButton(
                     icon: "photo",
                     label: loc.strings.chooseBanner,
@@ -173,10 +173,10 @@ struct ProfileEditView: View {
     /// Avatar placeholder: the current avatar + two no-op actions. The avatar
     /// initial is derived from the locally edited `name`.
     private var avatarRow: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: AppDimens.spacingLG) {
             AvatarView(name: name, size: 64)
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingSM) {
                 SheetActionButton(
                     icon: "photo",
                     label: loc.strings.chooseAvatar,
@@ -199,26 +199,26 @@ struct ProfileEditView: View {
             ZStack(alignment: .topLeading) {
                 if bio.isEmpty {
                     Text(loc.strings.bioPlaceholder)
-                        .font(.system(size: 14))
+                        .font(.system(size: AppTypography.body))
                         .foregroundColor(AppColor.textFaint)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, AppDimens.spacingLG)
+                        .padding(.vertical, AppDimens.spacingMD)
                 }
                 TextEditor(text: $bio)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.foreground)
                     .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, AppDimens.spacingMD)
+                    .padding(.vertical, AppDimens.spacingSM)
                     .frame(minHeight: 90)
             }
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
     }
@@ -226,82 +226,82 @@ struct ProfileEditView: View {
     /// Private-profile toggle row: title + subtitle + a brand-tinted Toggle
     /// bound to local state (no persistence).
     private var privateProfileRow: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(alignment: .top, spacing: AppDimens.spacingMD) {
+            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
                 Text(loc.strings.privateProfile)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                     .foregroundColor(AppColor.foreground)
                 Text(loc.strings.privateProfileSubtitle)
-                    .font(.system(size: 13))
+                    .font(.system(size: AppTypography.footnote))
                     .foregroundColor(AppColor.mutedForeground)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
             Toggle("", isOn: $isPrivate)
                 .labelsHidden()
                 .tint(AppColor.brand)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.horizontal, AppDimens.spacingLG)
+        .padding(.vertical, AppDimens.spacingMD)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                 .fill(AppColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
     /// Blocked-users row: bordered row with a trailing count. No-op (no
     /// destination yet).
     private var blockedUsersRow: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AppDimens.spacingMD) {
             Text(loc.strings.blockedUsers)
-                .font(.system(size: 15, weight: .medium))
+                .font(.system(size: AppTypography.body, weight: .medium))
                 .foregroundColor(AppColor.foreground)
-            Spacer(minLength: 8)
+            Spacer(minLength: AppDimens.spacingSM)
             Text("0")
-                .font(.system(size: 15))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.mutedForeground)
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.textFaint)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(.horizontal, AppDimens.spacingLG)
+        .padding(.vertical, AppDimens.spacingLG)
         .contentShape(Rectangle())
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                 .fill(AppColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
     /// Log-out button: bordered with destructive-colored text. No-op.
     private var logoutButton: some View {
         Button(action: {}) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(loc.strings.logout)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, AppDimens.spacingMD)
+            .padding(.horizontal, AppDimens.spacingLG)
             .foregroundColor(AppColor.destructive)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
         }
         .buttonStyle(.plain)
@@ -310,19 +310,19 @@ struct ProfileEditView: View {
     /// Delete-account button: destructive-tinted filled button. No-op.
     private var deleteAccountButton: some View {
         Button(action: {}) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "trash")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Text(loc.strings.deleteAccount)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.system(size: AppTypography.body, weight: .semibold))
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, AppDimens.spacingMD)
+            .padding(.horizontal, AppDimens.spacingLG)
             .foregroundColor(.white)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.destructive)
             )
         }
@@ -332,29 +332,29 @@ struct ProfileEditView: View {
     // MARK: Konto tab
 
     private var accountTab: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingXL) {
             changeEmailSection
             Rectangle()
                 .fill(AppColor.hairline)
-                .frame(height: 1)
+                .frame(height: AppDimens.hairline)
             changePasswordSection
         }
     }
 
     private var changeEmailSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(loc.strings.changeEmail)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
             // Dynamic content: the current email is NOT translated; the
             // "Aktuell:"/"Current:" prefix comes from i18n.
             Text(loc.strings.accountCurrentEmail(email: profile.email))
-                .font(.system(size: 13))
+                .font(.system(size: AppTypography.footnote))
                 .foregroundColor(AppColor.mutedForeground)
 
             fieldSurface {
                 TextField(loc.strings.newEmailPlaceholder, text: $newEmail)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.foreground)
                     .keyboardType(.emailAddress)
                     .textInputAutocapitalization(.never)
@@ -371,19 +371,19 @@ struct ProfileEditView: View {
     }
 
     private var changePasswordSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(loc.strings.changePassword)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
             fieldSurface {
                 SecureField(loc.strings.newPasswordPlaceholder, text: $newPassword)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.foreground)
             }
             fieldSurface {
                 SecureField(loc.strings.confirmPasswordPlaceholder, text: $confirmPassword)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.foreground)
             }
 
@@ -403,7 +403,7 @@ struct ProfileEditView: View {
     private func textField(_ binding: Binding<String>) -> some View {
         fieldSurface {
             TextField("", text: binding)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.foreground)
         }
     }
@@ -412,15 +412,15 @@ struct ProfileEditView: View {
     /// (same look as CreatePostView's search field).
     private func fieldSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, AppDimens.spacingMD)
+            .padding(.vertical, AppDimens.spacingMD)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
             )
     }
 }
@@ -433,9 +433,9 @@ private struct EditField<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
             Text(label)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: AppTypography.footnote, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
             content()
         }

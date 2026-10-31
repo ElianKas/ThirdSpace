@@ -48,12 +48,12 @@ struct DiscoverPlaceholderView: View {
     var body: some View {
         ZStack {
             AppColor.page.ignoresSafeArea()
-            VStack(spacing: 8) {
+            VStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 28))
+                    .font(.system(size: AppTypography.headline))
                     .foregroundColor(AppColor.textFaint)
                 Text(loc.strings.discoverPlaceholder)
-                    .font(.system(size: 15))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.textFaint)
             }
         }

@@ -49,11 +49,11 @@ struct ReportSheetView: View {
     var body: some View {
         ScrollView {
             SheetScaffold(title: nil, onClose: { close() }) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: AppDimens.spacingLG) {
                     header
                     if !contextLabel.isEmpty {
                         Text(contextLabel)
-                            .font(.system(size: 14))
+                            .font(.system(size: AppTypography.body))
                             .foregroundColor(AppColor.mutedForeground)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -77,12 +77,12 @@ struct ReportSheetView: View {
     // MARK: - Header (flag icon + title)
 
     private var header: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: AppDimens.spacingSM) {
             Image(systemName: "flag")
-                .font(.system(size: 20, weight: .semibold))
+                .font(.system(size: AppTypography.titleLarge, weight: .semibold))
                 .foregroundColor(AppColor.destructive)
             Text(loc.strings.reportTitle)
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: AppTypography.titleLarge, weight: .bold))
                 .foregroundColor(AppColor.foreground)
             Spacer(minLength: 0)
         }
@@ -92,7 +92,7 @@ struct ReportSheetView: View {
 
     private var hint: some View {
         Text(loc.strings.reportHint)
-            .font(.system(size: 13))
+            .font(.system(size: AppTypography.footnote))
             .foregroundColor(AppColor.mutedForeground)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -100,7 +100,7 @@ struct ReportSheetView: View {
     // MARK: - Reason list (single select)
 
     private var reasonList: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: AppDimens.spacingSM) {
             ForEach(reasons) { reason in
                 ReportReasonRow(
                     label: reason.label,
@@ -118,27 +118,27 @@ struct ReportSheetView: View {
         ZStack(alignment: .topLeading) {
             if details.isEmpty {
                 Text(loc.strings.reportDetailsPlaceholder)
-                    .font(.system(size: 14))
+                    .font(.system(size: AppTypography.body))
                     .foregroundColor(AppColor.textFaint)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
+                    .padding(.horizontal, AppDimens.spacingMD)
+                    .padding(.vertical, AppDimens.spacingMD)
                     .allowsHitTesting(false)
             }
             TextEditor(text: $details)
-                .font(.system(size: 14))
+                .font(.system(size: AppTypography.body))
                 .foregroundColor(AppColor.foreground)
                 .scrollContentBackground(.hidden)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.horizontal, AppDimens.spacingSM)
+                .padding(.vertical, AppDimens.spacingSM)
                 .frame(minHeight: 88)
         }
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                 .fill(AppColor.surface)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(AppColor.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
         )
     }
 
@@ -150,12 +150,12 @@ struct ReportSheetView: View {
             close()
         }) {
             Text(loc.strings.reportSubmit)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.system(size: AppTypography.body, weight: .semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, AppDimens.spacingLG)
                 .foregroundColor(.white)
                 .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                         .fill(AppColor.destructive)
                 )
         }
@@ -179,31 +179,31 @@ private struct ReportReasonRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: AppDimens.spacingSM) {
                 Text(label)
-                    .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                    .font(.system(size: AppTypography.body, weight: selected ? .semibold : .regular))
                     .foregroundColor(AppColor.foreground)
                 Spacer(minLength: 0)
                 if selected {
-                    HStack(spacing: 4) {
+                    HStack(spacing: AppDimens.spacingXS) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 15))
+                            .font(.system(size: AppTypography.body))
                         Text(selectedLabel)
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.system(size: AppTypography.caption, weight: .semibold))
                     }
                     .foregroundColor(AppColor.brand)
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, AppDimens.spacingLG)
+            .padding(.vertical, AppDimens.spacingMD)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
                     .fill(selected ? AppColor.brand.opacity(0.08) : AppColor.surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(selected ? AppColor.brand : AppColor.border, lineWidth: selected ? 1.5 : 1)
+                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                    .stroke(selected ? AppColor.brand : AppColor.border, lineWidth: selected ? 1.5 : AppDimens.hairline)
             )
         }
         .buttonStyle(.plain)
