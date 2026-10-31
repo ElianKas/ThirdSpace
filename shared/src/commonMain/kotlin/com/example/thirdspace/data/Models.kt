@@ -8,6 +8,15 @@ enum class VoteState { UP, DOWN, NONE }
  *
  * [placeholderColorArgb] is an ARGB color used to render a colored placeholder
  * surface instead of loading a real image (UI-only build, no network images).
+ *
+ * [lat] / [lng] are the spot's geographic coordinates (WGS84), used to place a
+ * pin on the Mapbox map. Both are [Double], which crosses the FeedBridge
+ * boundary safely (unlike [Long]).
+ *
+ * The model is intentionally kept extensible: future fields (e.g. a textual
+ * description or a photo reference) can be added here without reshaping the
+ * Swift<->Kotlin boundary. Only the two coordinate fields are added now; no
+ * description/photo yet.
  */
 data class Spot(
     val id: String,
@@ -17,6 +26,8 @@ data class Spot(
     val verified: Boolean,
     val checkInCount: Int,
     val placeholderColorArgb: Long,
+    val lat: Double,
+    val lng: Double,
 )
 
 /** A feed post attached to a [spot]. */

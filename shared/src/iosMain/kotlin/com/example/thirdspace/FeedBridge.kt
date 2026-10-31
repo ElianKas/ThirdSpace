@@ -1,6 +1,9 @@
 package com.example.thirdspace
 
 import com.example.thirdspace.data.SampleData
+import com.example.thirdspace.data.Spot
+import com.example.thirdspace.data.SpotCategory
+import com.example.thirdspace.data.Spots
 import com.example.thirdspace.data.VoteState
 import com.example.thirdspace.i18n.AppLanguage
 import com.example.thirdspace.i18n.AppStrings
@@ -30,6 +33,27 @@ data class IosPost(
     val score: Int,
     val voteState: String,
     val commentCount: Int,
+    val colorHex: String,
+)
+
+/**
+ * Flat, ObjC-friendly snapshot of a spot for the SwiftUI Mapbox map.
+ *
+ * Only String / Boolean / Int / Double cross the boundary — no Kotlin enums, no
+ * nullables, no Long. [lat] / [lng] are the pin coordinates (Double is safe
+ * across the boundary). [colorHex] is a "#RRGGBB" string = the spot category's
+ * marker color resolved from the shared [com.example.thirdspace.data.SpotCategory]
+ * (so Swift never hardcodes a category color).
+ */
+data class IosSpot(
+    val id: String,
+    val name: String,
+    val category: String,
+    val neighborhood: String,
+    val verified: Boolean,
+    val checkInCount: Int,
+    val lat: Double,
+    val lng: Double,
     val colorHex: String,
 )
 
@@ -162,6 +186,14 @@ data class IosStrings(
     val visibilityPublic: String,
     val visibilityFriends: String,
     val createPost: String,
+    // Create spot sheet
+    val addSpotTitle: String,
+    val addSpotSubtitle: String,
+    val addSpotNameLabel: String,
+    val addSpotNamePlaceholder: String,
+    val addSpotCategoryLabel: String,
+    val addSpotLocationLabel: String,
+    val addSpotCreate: String,
     // Language picker
     val languageMenu: String,
     // Report sheet
@@ -267,6 +299,13 @@ data class IosStrings(
                 visibilityPublic = s.visibilityPublic,
                 visibilityFriends = s.visibilityFriends,
                 createPost = s.createPost,
+                addSpotTitle = s.addSpotTitle,
+                addSpotSubtitle = s.addSpotSubtitle,
+                addSpotNameLabel = s.addSpotNameLabel,
+                addSpotNamePlaceholder = s.addSpotNamePlaceholder,
+                addSpotCategoryLabel = s.addSpotCategoryLabel,
+                addSpotLocationLabel = s.addSpotLocationLabel,
+                addSpotCreate = s.addSpotCreate,
                 reportTitle = s.reportTitle,
                 reportHint = s.reportHint,
                 reportDetailsPlaceholder = s.reportDetailsPlaceholder,
@@ -397,6 +436,101 @@ object FeedBridge {
             colorHex = argbToHex(post.placeholderColorArgb),
         )
     }
+
+    /**
+     * All spots to render on the Mapbox map, sourced from the shared
+     * [Spots.repository] (the offline-ready seam), as flat [IosSpot] values.
+     * [IosSpot.colorHex] is the category's marker color from the shared
+     * [SpotCategory] — Swift does not hardcode category colors.
+     */
+    fun spots(): List<IosSpot> = Spots.repository.getSpots().map { spot ->
+        IosSpot(
+            id = spot.id,
+            name = spot.name,
+            category = spot.category,
+            neighborhood = spot.neighborhood,
+            verified = spot.verified,
+            checkInCount = spot.checkInCount,
+            lat = spot.lat,
+            lng = spot.lng,
+            colorHex = SpotCategory.colorHexForLabel(spot.category),
+        )
+    }
+
+    /**
+     * The "#RRGGBB" marker color for a stored category [category] label,
+     * resolved from the shared [SpotCategory]. Flat String in/out. Exposed so
+     * any future Swift caller resolves colors from the single shared source.
+     */
+    fun categoryColorHex(category: String): String =
+        SpotCategory.colorHexForLabel(category)
+
+    /**
+     * The fixed category labels (the 8 [SpotCategory] entries), in declaration
+     * order, as a flat `List<String>`. The create-spot sheet renders its
+     * category pills from THIS list so Swift never hardcodes the category list;
+     * labels stay DYNAMIC content (not i18n), consistent with the convention
+     * that spot categories are not translated.
+     */
+    fun categories(): List<String> = SpotCategory.entries.map { it.label }
+
+    /**
+     * Persist a NEW spot through the shared [Spots.repository] so it shows up as
+     * a pin on the map. Flat types only (String / Double) cross the boundary —
+     * no nullable, no Long, no enum.
+     *
+     * The caller supplies a unique [id] (generated Swift-side with `UUID`, see
+     * AddSpotSheetView) so id generation is not duplicated shared-side.
+     * [neighborhood] may be an empty string for now (no reverse geocoding yet).
+     * The stored [Spot.placeholderColorArgb] is derived from the category's own
+     * marker color (a reasonable neutral default; the map pin color itself is
+     * resolved from the category label via [SpotCategory.colorHexForLabel], so
+     * this field only backs any future placeholder surface).
+     *
+     * New spots are in-memory only (they do NOT survive relaunch) — the
+     * in-memory [Spots.repository] is the single source of truth the map
+     * re-reads via [spots].
+     */
+    fun addSpot(
+        id: String,
+        name: String,
+        category: String,
+        neighborhood: String,
+        lat: Double,
+        lng: Double,
+    ) {
+        val spot = Spot(
+            id = id,
+            name = name,
+            category = category,
+            neighborhood = neighborhood,
+            verified = false,
+            checkInCount = 0,
+            placeholderColorArgb = argbForCategory(category),
+            lat = lat,
+            lng = lng,
+        )
+        Spots.repository.addSpot(spot)
+    }
+
+    /**
+     * Derive an opaque ARGB Long from a category label's "#RRGGBB" marker color
+     * (full alpha). Used only as the new spot's [Spot.placeholderColorArgb]
+     * default; the map pin color is resolved separately from the category.
+     */
+    private fun argbForCategory(category: String): Long {
+        val hex = SpotCategory.colorHexForLabel(category).removePrefix("#")
+        val rgb = hex.toLong(16)
+        return 0xFF000000L or rgb
+    }
+
+    /**
+     * Map a Mapbox POI's [maki] icon id and symbol [clazz] to a category label
+     * (flat String in/out). Wired for Phase 4's POI-adopt prefill; exposed here
+     * so the category spec is consumed from the single shared source.
+     */
+    fun categoryForMaki(maki: String, clazz: String): String =
+        SpotCategory.categoryForMaki(maki, clazz)
 
     /**
      * Mapped copy of the shared comments for [postId], safe to consume from

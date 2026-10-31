@@ -210,10 +210,47 @@ struct UIProfile {
     }
 }
 
+// MARK: - UISpot (Swift mirror of Kotlin IosSpot)
+
+/// Swift-side value type for a spot rendered on the Mapbox map. Built from the
+/// bridged `IosSpot` returned by `FeedBridge.shared.spots()`. The shared module
+/// is the single source of truth for the spots (and for the category marker
+/// color): `colorHex` is resolved shared-side from `SpotCategory`, so no
+/// category hex literal is hardcoded in Swift — it feeds `Color(hex:)` directly.
+struct UISpot: Identifiable {
+    let id: String
+    let name: String
+    let category: String
+    let neighborhood: String
+    let verified: Bool
+    let checkInCount: Int
+    let lat: Double
+    let lng: Double
+    let colorHex: String      // "#RRGGBB" from shared SpotCategory
+
+    init(bridged: IosSpot) {
+        self.id = bridged.id
+        self.name = bridged.name
+        self.category = bridged.category
+        self.neighborhood = bridged.neighborhood
+        self.verified = bridged.verified
+        self.checkInCount = Int(bridged.checkInCount)
+        self.lat = bridged.lat
+        self.lng = bridged.lng
+        self.colorHex = bridged.colorHex
+    }
+}
+
 enum FeedData {
     /// Pull the bridged posts from the shared framework and map to `UIPost`.
     static func posts() -> [UIPost] {
         FeedBridge.shared.posts().map { UIPost(bridged: $0) }
+    }
+
+    /// Pull the bridged spots from the shared framework and map to `UISpot`.
+    /// Single source of truth for the map pins (coordinates + category color).
+    static func spots() -> [UISpot] {
+        FeedBridge.shared.spots().map { UISpot(bridged: $0) }
     }
 
     /// Pull the bridged current-user profile from the shared framework. Single
@@ -243,5 +280,47 @@ enum FeedData {
     /// when the post has no comments (drives the Comments sheet empty state).
     static func comments(postId: String) -> [UIComment] {
         FeedBridge.shared.comments(postId: postId).map { UIComment(bridged: $0) }
+    }
+
+    /// The fixed category labels (8 `SpotCategory` entries) from the shared
+    /// bridge, in declaration order. The create-spot sheet renders its category
+    /// pills from this list, so Swift never hardcodes the category list.
+    static func categories() -> [String] {
+        FeedBridge.shared.categories()
+    }
+
+    /// The shared "#RRGGBB" marker color for a category label, resolved by the
+    /// shared `SpotCategory`. Used to tint the selected category pill without
+    /// hardcoding any hex Swift-side.
+    static func categoryColorHex(_ category: String) -> String {
+        FeedBridge.shared.categoryColorHex(category: category)
+    }
+
+    /// Resolve a category label (one of `categories()`) from a tapped Mapbox
+    /// POI's `maki` icon id and symbol `clazz`, via the shared `SpotCategory`
+    /// mapping (single source of truth). Flat String in/out. Used by the Phase 4
+    /// POI-adopt flow so the create-spot sheet preselects a sensible category.
+    static func categoryForMaki(maki: String, clazz: String) -> String {
+        FeedBridge.shared.categoryForMaki(maki: maki, clazz: clazz)
+    }
+
+    /// Persist a new spot through the shared repository so it appears as a pin.
+    /// All flat types cross the boundary. The caller supplies the `id`.
+    static func addSpot(
+        id: String,
+        name: String,
+        category: String,
+        neighborhood: String,
+        lat: Double,
+        lng: Double
+    ) {
+        FeedBridge.shared.addSpot(
+            id: id,
+            name: name,
+            category: category,
+            neighborhood: neighborhood,
+            lat: lat,
+            lng: lng
+        )
     }
 }

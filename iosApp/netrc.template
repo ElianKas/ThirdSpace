@@ -1,0 +1,24 @@
+# Mapbox SDK download credentials (TEMPLATE — committed, no real secrets).
+#
+# The Mapbox Maps SDK for iOS is distributed through a private binary registry.
+# Swift Package Manager authenticates the DOWNLOAD using a SECRET downloads
+# token (an "sk." token) read from your ~/.netrc file.
+#
+# This token is DIFFERENT from the public runtime token (see
+# iosApp/Mapbox.xcconfig.template). The sk. token is used only at build time to
+# fetch the SDK; the pk. token is used at runtime to load map tiles.
+#
+# SETUP (one time, per developer machine):
+#   1. In the Mapbox account dashboard, create a SECRET access token with the
+#      "Downloads: Read" scope. It starts with "sk.".
+#   2. Create or edit the file ~/.netrc in your home directory.
+#   3. Add the block below, replacing sk.PLACEHOLDER with your real sk. token.
+#   4. Restrict permissions so only you can read it:
+#        chmod 600 ~/.netrc
+#
+# Do NOT commit your real ~/.netrc. This template documents the required
+# format only; the real file lives OUTSIDE the repo (in your home directory).
+
+machine api.mapbox.com
+login mapbox
+password sk.PLACEHOLDER

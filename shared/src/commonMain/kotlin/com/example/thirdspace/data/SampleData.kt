@@ -14,6 +14,8 @@ object SampleData {
         verified = true,
         checkInCount = 128,
         placeholderColorArgb = 0xFFE9B384,
+        lat = 52.5403,
+        lng = 13.4120,
     )
 
     private val spotVolkspark = Spot(
@@ -24,6 +26,8 @@ object SampleData {
         verified = false,
         checkInCount = 54,
         placeholderColorArgb = 0xFFA3C9A8,
+        lat = 52.5277,
+        lng = 13.4320,
     )
 
     private val spotBonanza = Spot(
@@ -34,6 +38,8 @@ object SampleData {
         verified = true,
         checkInCount = 1,
         placeholderColorArgb = 0xFFD5A6BD,
+        lat = 52.4987,
+        lng = 13.4180,
     )
 
     private val spotKlunker = Spot(
@@ -44,6 +50,8 @@ object SampleData {
         verified = false,
         checkInCount = 342,
         placeholderColorArgb = 0xFF8EA7C4,
+        lat = 52.4759,
+        lng = 13.4300,
     )
 
     private val spotTempelhof = Spot(
@@ -54,6 +62,8 @@ object SampleData {
         verified = true,
         checkInCount = 87,
         placeholderColorArgb = 0xFFC4B58E,
+        lat = 52.4730,
+        lng = 13.4050,
     )
 
     private val spotCompanion = Spot(
@@ -64,6 +74,8 @@ object SampleData {
         verified = false,
         checkInCount = 19,
         placeholderColorArgb = 0xFFB0A8C4,
+        lat = 52.5290,
+        lng = 13.4010,
     )
 
     /** Feed posts: varied text/verified/category/score. */

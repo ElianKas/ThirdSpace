@@ -1,3 +1,10 @@
+// Mapbox PUBLIC runtime token. The real token lives in iosApp/Mapbox.xcconfig
+// (gitignored); it is seeded from iosApp/Mapbox.xcconfig.template. Using
+// `#include?` (optional include) so the project still configures even if a
+// developer has not created the file yet — MAPBOX_PUBLIC_TOKEN simply stays
+// empty in that case. The value is surfaced into Info.plist as MBXAccessToken.
+#include? "../Mapbox.xcconfig"
+
 TEAM_ID=
 
 PRODUCT_NAME=ThirdSpace

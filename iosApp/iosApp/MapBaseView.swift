@@ -1,17 +1,24 @@
 import SwiftUI
+import CoreLocation
 
-/// Native SwiftUI map BASE — a faithful replication of the former Compose
-/// `MapScreen`, with NO real map engine.
+/// Native SwiftUI map BASE. The map area is a REAL Mapbox base map
+/// (`MapboxMapView`); the chrome below is layered on top of it.
 ///
-/// Layout (matching the Compose original):
-/// - Page-colored background with a subtle centered "Karte folgt" label.
+/// Layout:
+/// - Real Mapbox base map centered on Berlin, filling the area the former
+///   "Karte folgt" placeholder occupied, with one category-colored pin per
+///   shared spot (Phase 2).
 /// - Top frosted search bar: magnifyingglass + placeholder + round avatar.
 /// - Horizontally scrollable filter chips sourced from the shared bridge
 ///   (`FeedBridge.shared.mapFilters()`), "Meine Pins" active.
-/// - Bottom-left vertical control stack (locate + users SF Symbols).
-/// - Bottom-right FAB (plus).
+/// - Bottom-left vertical control stack (locate + users SF Symbols) — no-ops.
+/// - Bottom-right FAB (plus) — starts a create-spot flow at the current map
+///   center (Phase 3).
 ///
-/// Every control is a no-op (UI only).
+/// Create-spot (Phase 3): a tap/long-press on empty map, OR the FAB, opens the
+/// native `AddSpotSheetView` at the chosen coordinate. Confirming persists the
+/// new spot through the shared repository and refreshes the pins in-session.
+/// The two control-stack buttons remain no-ops (UI only).
 struct MapBaseView: View {
     @Environment(Localization.self) private var loc
     // Computed (not a stored `let`) so the chip labels re-resolve from the
@@ -20,14 +27,51 @@ struct MapBaseView: View {
     // live instead of staying frozen at their first-resolved values.
     private var filters: [UIFilterChip] { FeedData.mapFilters() }
 
+    /// Spots rendered as pins. Held in `@State` and seeded from the shared
+    /// bridge so confirming a new spot can re-read `FeedData.spots()` and have
+    /// the `CircleAnnotationGroup` render the new pin in-session.
+    @State private var spots: [UISpot] = FeedData.spots()
+
+    /// Drives the create-spot sheet via the project `.sheet(item:)` pattern.
+    /// Non-nil carries the pending coordinate (from a tap or the FAB).
+    @State private var pendingSpot: PendingSpot?
+
+    /// Getter handed up from `MapboxMapView` to read the CURRENT map center for
+    /// the FAB's default coordinate. Nil until the map has appeared.
+    @State private var mapCenter: (() -> CLLocationCoordinate2D?)?
+
     var body: some View {
         ZStack {
-            // Placeholder map area
-            AppColor.page.ignoresSafeArea()
-
-            Text(loc.strings.mapPlaceholder)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.textFaint)
+            // Real Mapbox base map centered on Berlin with category-colored
+            // pins. All chrome below stays layered ON TOP of it. A tap/long-
+            // press yields a coordinate (`onMapTap`) that opens the create-spot
+            // sheet; `currentCenter` hands up a getter for the FAB path. POI
+            // tapping is still Phase 4 and is NOT handled here.
+            MapboxMapView(
+                spots: spots,
+                onMapTap: { coordinate in
+                    pendingSpot = PendingSpot(
+                        coordinate: (lat: coordinate.latitude, lng: coordinate.longitude)
+                    )
+                },
+                onPoiTap: { coordinate, name, maki, clazz in
+                    // Phase 4: adopt a tapped Mapbox POI. Resolve the category
+                    // shared-side from the POI's maki/class (single source of
+                    // truth, flat String in/out), then open the SAME create-spot
+                    // sheet PREFILLED with the POI name + resolved category at
+                    // the POI coordinate. A POI tap already took precedence over
+                    // the empty-map tap inside MapboxMapView.
+                    let category = FeedData.categoryForMaki(maki: maki, clazz: clazz)
+                    pendingSpot = PendingSpot(
+                        coordinate: (lat: coordinate.latitude, lng: coordinate.longitude),
+                        prefillName: name,
+                        prefillCategory: category
+                    )
+                },
+                currentCenter: { getter in
+                    mapCenter = getter
+                }
+            )
 
             // Bottom-left vertical control stack
             VStack {
@@ -53,8 +97,8 @@ struct MapBaseView: View {
         }
         // Top controls (search bar + filter chips) placed BELOW the real top
         // safe-area inset via `.topChrome` so they clear the status bar /
-        // Dynamic Island, while `AppColor.page.ignoresSafeArea()` keeps the map
-        // background borderless to the top. The gap uses the shared
+        // Dynamic Island, while the `MapboxMapView` below uses `.ignoresSafeArea()`
+        // to keep the map borderless to the top. The gap uses the shared
         // `AppLayout.topChromeSpacing` token (no fixed 12pt magic number).
         .topChrome(alignment: .leading) {
             VStack(spacing: AppDimens.spacingSM) {
@@ -62,6 +106,22 @@ struct MapBaseView: View {
                 filterChips
             }
             .padding(.horizontal, AppDimens.spacingLG)
+        }
+        // Create-spot sheet. Follows the project sheet pattern: driven by an
+        // Identifiable @State item (`pendingSpot`) carrying the pending
+        // coordinate, with `.medium`+`.large` detents and the drag indicator.
+        .sheet(item: $pendingSpot) { pending in
+            AddSpotSheetView(
+                pending: pending,
+                onCreated: { _ in
+                    // Re-read the shared repository so the new pin renders.
+                    spots = FeedData.spots()
+                    pendingSpot = nil
+                },
+                onClose: { pendingSpot = nil }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -136,7 +196,7 @@ struct MapBaseView: View {
     // MARK: Bottom-right FAB
 
     private var fab: some View {
-        Button(action: { /* no-op */ }) {
+        Button(action: startCreateAtCenter) {
             Image(systemName: "plus")
                 .font(.system(size: AppTypography.titleLarge, weight: .semibold))
                 .foregroundColor(.white)
@@ -144,6 +204,17 @@ struct MapBaseView: View {
                 .background(Circle().fill(AppColor.brand))
         }
         .buttonStyle(.plain)
+    }
+
+    /// FAB path: start a create-spot flow at the CURRENT map center. The center
+    /// is read from the getter `MapboxMapView` handed up (`mapCenter`), i.e. the
+    /// live camera center. If it isn't readable yet (map not appeared), fall
+    /// back to Berlin center — the same default the camera starts at.
+    private func startCreateAtCenter() {
+        let center = mapCenter?() ?? MapboxMapView.berlin
+        pendingSpot = PendingSpot(
+            coordinate: (lat: center.latitude, lng: center.longitude)
+        )
     }
 }
 

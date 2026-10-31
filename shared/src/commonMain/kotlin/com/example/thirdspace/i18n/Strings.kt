@@ -70,6 +70,17 @@ interface Strings {
     val visibilityFriends: String
     val createPost: String
 
+    // Create spot sheet (AddSpotSheetView) — tap-to-create a new spot at a
+    // map coordinate. Category labels are DYNAMIC (from SpotCategory) and are
+    // NOT part of this table; only the static chrome below is localized.
+    val addSpotTitle: String
+    val addSpotSubtitle: String
+    val addSpotNameLabel: String
+    val addSpotNamePlaceholder: String
+    val addSpotCategoryLabel: String
+    val addSpotLocationLabel: String
+    val addSpotCreate: String
+
     // Language picker (ProfileView globe button) — accessibility label for the
     // menu that switches the UI language live.
     val languageMenu: String
@@ -211,6 +222,15 @@ object De : Strings {
     override val visibilityFriends = "Freunde"
     override val createPost = "Posten"
 
+    // Create spot sheet
+    override val addSpotTitle = "Neuen Spot anlegen"
+    override val addSpotSubtitle = "Markiere einen Ort auf der Karte und gib ihm einen Namen."
+    override val addSpotNameLabel = "Name"
+    override val addSpotNamePlaceholder = "Wie heißt dieser Ort?"
+    override val addSpotCategoryLabel = "Kategorie"
+    override val addSpotLocationLabel = "Standort"
+    override val addSpotCreate = "Spot erstellen"
+
     // Language picker
     override val languageMenu = "Sprache ändern"
 
@@ -342,6 +362,15 @@ object En : Strings {
     override val visibilityPublic = "Public"
     override val visibilityFriends = "Friends"
     override val createPost = "Post"
+
+    // Create spot sheet
+    override val addSpotTitle = "Create a new spot"
+    override val addSpotSubtitle = "Mark a place on the map and give it a name."
+    override val addSpotNameLabel = "Name"
+    override val addSpotNamePlaceholder = "What's this place called?"
+    override val addSpotCategoryLabel = "Category"
+    override val addSpotLocationLabel = "Location"
+    override val addSpotCreate = "Create spot"
 
     // Language picker
     override val languageMenu = "Change language"

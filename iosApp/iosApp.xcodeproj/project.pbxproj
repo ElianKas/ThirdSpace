@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		MBX0000000000000000000B01 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = MBX0000000000000000000D01 /* MapboxMaps */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		CA9E49864A4B6475F3AA3CB0 /* ThirdSpace.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ThirdSpace.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -41,6 +45,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				MBX0000000000000000000B01 /* MapboxMaps in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -85,6 +90,7 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
+				MBX0000000000000000000D01 /* MapboxMaps */,
 			);
 			productName = iosApp;
 			productReference = CA9E49864A4B6475F3AA3CB0 /* ThirdSpace.app */;
@@ -114,6 +120,9 @@
 			);
 			mainGroup = B7AFBF0F97B7F1D469D96113;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				MBX0000000000000000000C01 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BB0EC3200CA8B7609E432180 /* Products */;
 			projectDirPath = "";
@@ -368,6 +377,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		MBX0000000000000000000C01 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mapbox/mapbox-maps-ios.git";
+			requirement = {
+				kind = exactVersion;
+				version = 11.19.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		MBX0000000000000000000D01 /* MapboxMaps */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = MBX0000000000000000000C01 /* XCRemoteSwiftPackageReference "mapbox-maps-ios" */;
+			productName = MapboxMaps;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 7C4F9C07C0B873C1064CEF5E /* Project object */;
 }

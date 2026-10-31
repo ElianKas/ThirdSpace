@@ -1,0 +1,17 @@
+// Mapbox PUBLIC runtime token (TEMPLATE — committed, no real secret).
+//
+// The map needs a PUBLIC access token (starts with "pk.") at RUNTIME to load
+// map tiles and styles. This is DIFFERENT from the secret sk. download token
+// in ~/.netrc (see netrc.template) used only at build time.
+//
+// SETUP (one time, per developer machine):
+//   1. Copy this file to iosApp/Mapbox.xcconfig (same folder, drop ".template"):
+//        cp iosApp/Mapbox.xcconfig.template iosApp/Mapbox.xcconfig
+//   2. Replace pk.PLACEHOLDER below with your real PUBLIC (pk.) token.
+//   3. The real iosApp/Mapbox.xcconfig is gitignored — never commit the token.
+//
+// Configuration/Config.xcconfig #includes iosApp/Mapbox.xcconfig and the value
+// is surfaced into Info.plist as the `MBXAccessToken` key, which the Mapbox SDK
+// reads automatically at launch. We do NOT hardcode the token in Swift.
+
+MAPBOX_PUBLIC_TOKEN = pk.PLACEHOLDER

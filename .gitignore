@@ -18,3 +18,9 @@ captures
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
 legacy-project/
+
+# Mapbox real token files (secrets) — gitignored. The *.template files ARE
+# tracked and document the required format; the real files are created locally.
+iosApp/Mapbox.xcconfig
+iosApp/Secrets.xcconfig
+**/Secrets.plist
