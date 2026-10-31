@@ -1,0 +1,80 @@
+-- ThirdSpace offline cache database (SQLDelight 2.4.1).
+--
+-- Phase D schema: the offline-first spot cache + an outbound pending-insert
+-- queue for spots created while offline/unconfigured.
+--
+-- STORAGE RULE (see steering/architecture.md): only the PERSISTED Spot fields
+-- live here. `checkInCount` and `placeholderColorArgb` are UI-only/derived and
+-- are NOT stored — they are re-derived on read (checkInCount = 0; the color
+-- comes from the category via SpotCategory), exactly as FeedBridge.addSpot
+-- already derives them. Booleans are stored as INTEGER 0/1 (SQLite has no
+-- native boolean).
+
+-- ---------------------------------------------------------------------------
+-- cachedSpots: the local mirror of the remote `public.spots` table. This is
+-- the source of truth the map reads synchronously (getSpots()), kept fresh by
+-- a background remote replace-all.
+-- ---------------------------------------------------------------------------
+CREATE TABLE cachedSpots (
+    id TEXT NOT NULL PRIMARY KEY,
+    owner_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    neighborhood TEXT NOT NULL DEFAULT '',
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    verified INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- pendingSpotInserts: the outbound queue of locally-created spots awaiting a
+-- successful remote insert. A row stays here until its remote insert succeeds,
+-- at which point it is deleted (dequeued). `enqueued_at` (epoch millis) orders
+-- the queue so inserts flush oldest-first.
+-- ---------------------------------------------------------------------------
+CREATE TABLE pendingSpotInserts (
+    id TEXT NOT NULL PRIMARY KEY,
+    owner_id TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    category TEXT NOT NULL,
+    neighborhood TEXT NOT NULL DEFAULT '',
+    lat REAL NOT NULL,
+    lng REAL NOT NULL,
+    verified INTEGER NOT NULL DEFAULT 0,
+    enqueued_at INTEGER NOT NULL
+);
+
+-- --- cachedSpots queries ---------------------------------------------------
+
+selectAllCachedSpots:
+SELECT id, owner_id, name, category, neighborhood, lat, lng, verified
+FROM cachedSpots;
+
+-- Upsert so a remote refresh (or a local write-through) overwrites an existing
+-- row by primary key rather than failing on conflict.
+upsertCachedSpot:
+INSERT OR REPLACE INTO cachedSpots(id, owner_id, name, category, neighborhood, lat, lng, verified)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAllCachedSpots:
+DELETE FROM cachedSpots;
+
+countCachedSpots:
+SELECT count(*) FROM cachedSpots;
+
+-- --- pendingSpotInserts queries --------------------------------------------
+
+enqueuePendingInsert:
+INSERT OR REPLACE INTO pendingSpotInserts(id, owner_id, name, category, neighborhood, lat, lng, verified, enqueued_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+selectPendingInserts:
+SELECT id, owner_id, name, category, neighborhood, lat, lng, verified, enqueued_at
+FROM pendingSpotInserts
+ORDER BY enqueued_at ASC;
+
+deletePendingInsert:
+DELETE FROM pendingSpotInserts WHERE id = ?;
+
+countPendingInserts:
+SELECT count(*) FROM pendingSpotInserts;

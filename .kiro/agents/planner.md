@@ -13,9 +13,9 @@ permissions:
     - capability: shell
       effect: deny
     - capability: web_search
-      effect: ask
+      effect: allow
     - capability: web_fetch
-      effect: ask
+      effect: allow
 ---
 
 You are a senior software architect and planning agent.

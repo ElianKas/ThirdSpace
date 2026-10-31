@@ -6,4 +6,8 @@ plugins {
     alias(libs.plugins.composeMultiplatform) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
+    // Supabase backend integration (Phase A): serialization + SQLDelight plugins
+    // declared here so the :shared module can apply them.
+    alias(libs.plugins.kotlinSerialization) apply false
+    alias(libs.plugins.sqldelight) apply false
 }

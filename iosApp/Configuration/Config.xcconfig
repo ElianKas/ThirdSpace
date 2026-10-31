@@ -5,6 +5,14 @@
 // empty in that case. The value is surfaced into Info.plist as MBXAccessToken.
 #include? "../Mapbox.xcconfig"
 
+// Supabase backend config. Real values live in iosApp/Supabase.xcconfig
+// (gitignored), seeded from iosApp/Supabase.xcconfig.template. Optional
+// `#include?` so the project still configures if the file is absent (the
+// SUPABASE_* vars simply stay empty). Values surface into Info.plist as
+// `SupabaseURL` / `SupabaseAnonKey`. The URL is stored host-only (no scheme)
+// because xcconfig treats `//` as a comment — iOSApp.swift re-adds "https://".
+#include? "../Supabase.xcconfig"
+
 TEAM_ID=
 
 PRODUCT_NAME=ThirdSpace

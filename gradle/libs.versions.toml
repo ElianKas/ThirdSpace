@@ -15,6 +15,22 @@ junit = "4.13.2"
 kotlin = "2.4.21"
 material3 = "1.12.0-alpha03"
 
+# --- Supabase backend integration (Phase A: dependencies + config scaffold) ---
+# supabase-kt BOM pins all supabase module versions; modules declared without a
+# version so the BOM governs them. 3.8.0 is the latest STABLE 3.x on Maven
+# Central (3.9.0 is a beta). Confirmed BOM + auth-kt + postgrest-kt all publish
+# at 3.8.0.
+supabase = "3.8.0"
+# Ktor version REQUIRED by supabase-kt 3.8.0 (read from its Gradle module
+# metadata: io.ktor requires 3.5.1). Must match supabase's expectation.
+ktor = "3.5.1"
+# kotlinx versions requested by supabase-kt 3.8.0 (from its module metadata).
+# Both artifacts confirmed present on Maven Central.
+kotlinxSerialization = "1.11.0"
+kotlinxCoroutines = "1.11.0"
+# SQLDelight: latest stable 2.x. Plugin + runtime + drivers confirmed at 2.4.1.
+sqldelight = "2.4.1"
+
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
@@ -35,9 +51,33 @@ compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "composeMul
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
 
+# --- Supabase backend integration (Phase A) ---
+# BOM: imported via platform(...) so the module entries below stay version-less.
+supabase-bom = { module = "io.github.jan-tennert.supabase:bom", version.ref = "supabase" }
+supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt" }
+supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt" }
+
+# Ktor client: core in commonMain, platform engines in androidMain/iosMain.
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+
+# kotlinx
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+
+# SQLDelight runtime + platform drivers (+ in-memory JDBC driver for host tests).
+sqldelight-runtime = { module = "app.cash.sqldelight:runtime", version.ref = "sqldelight" }
+sqldelight-native-driver = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
+sqldelight-android-driver = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqldelight-sqlite-driver = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidMultiplatformLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+# Serialization plugin is versioned WITH the Kotlin compiler (must equal `kotlin`).
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }

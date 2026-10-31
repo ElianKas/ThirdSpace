@@ -48,6 +48,16 @@ class StringsTest {
         s.changeEmail, s.newEmailPlaceholder, s.sendConfirmationEmail,
         s.changePassword, s.newPasswordPlaceholder, s.confirmPasswordPlaceholder,
         s.changePasswordButton,
+        s.authLoginTitle, s.authSignUpTitle,
+        s.authEmailLabel, s.authEmailPlaceholder,
+        s.authPasswordLabel, s.authPasswordPlaceholder,
+        s.authNameLabel, s.authNamePlaceholder,
+        s.authCityLabel, s.authCityPlaceholder,
+        s.authLoginButton, s.authSignUpButton,
+        s.authSwitchToSignUp, s.authSwitchToLogin,
+        s.authErrorInvalidCredentials, s.authErrorEmailExists,
+        s.authErrorWeakPassword, s.authErrorNotConfigured,
+        s.authErrorNetwork, s.authErrorGeneric,
     )
 
     // (a) Every property key is non-empty in BOTH De and En.

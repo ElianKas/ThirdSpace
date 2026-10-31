@@ -22,5 +22,6 @@ legacy-project/
 # Mapbox real token files (secrets) — gitignored. The *.template files ARE
 # tracked and document the required format; the real files are created locally.
 iosApp/Mapbox.xcconfig
+iosApp/Supabase.xcconfig
 iosApp/Secrets.xcconfig
 **/Secrets.plist

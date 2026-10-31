@@ -1,13 +1,22 @@
 package com.example.thirdspace
 
+import com.example.thirdspace.data.AuthRepository
+import com.example.thirdspace.data.AuthResult
 import com.example.thirdspace.data.SampleData
 import com.example.thirdspace.data.Spot
 import com.example.thirdspace.data.SpotCategory
+import com.example.thirdspace.data.SpotMapping
 import com.example.thirdspace.data.Spots
+import com.example.thirdspace.data.SupabaseClientProvider
 import com.example.thirdspace.data.VoteState
 import com.example.thirdspace.i18n.AppLanguage
 import com.example.thirdspace.i18n.AppStrings
 import com.example.thirdspace.i18n.Strings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
 /**
  * Flat, ObjC-friendly snapshot of a feed post for the SwiftUI native feed.
@@ -237,6 +246,27 @@ data class IosStrings(
     val newPasswordPlaceholder: String,
     val confirmPasswordPlaceholder: String,
     val changePasswordButton: String,
+    // Auth screens (logout button reuses [logout] above)
+    val authLoginTitle: String,
+    val authSignUpTitle: String,
+    val authEmailLabel: String,
+    val authEmailPlaceholder: String,
+    val authPasswordLabel: String,
+    val authPasswordPlaceholder: String,
+    val authNameLabel: String,
+    val authNamePlaceholder: String,
+    val authCityLabel: String,
+    val authCityPlaceholder: String,
+    val authLoginButton: String,
+    val authSignUpButton: String,
+    val authSwitchToSignUp: String,
+    val authSwitchToLogin: String,
+    val authErrorInvalidCredentials: String,
+    val authErrorEmailExists: String,
+    val authErrorWeakPassword: String,
+    val authErrorNotConfigured: String,
+    val authErrorNetwork: String,
+    val authErrorGeneric: String,
 ) {
     /** The underlying shared table, used for the formatting functions below. */
     private val table: Strings get() = AppStrings.of(languageCode)
@@ -344,6 +374,26 @@ data class IosStrings(
                 newPasswordPlaceholder = s.newPasswordPlaceholder,
                 confirmPasswordPlaceholder = s.confirmPasswordPlaceholder,
                 changePasswordButton = s.changePasswordButton,
+                authLoginTitle = s.authLoginTitle,
+                authSignUpTitle = s.authSignUpTitle,
+                authEmailLabel = s.authEmailLabel,
+                authEmailPlaceholder = s.authEmailPlaceholder,
+                authPasswordLabel = s.authPasswordLabel,
+                authPasswordPlaceholder = s.authPasswordPlaceholder,
+                authNameLabel = s.authNameLabel,
+                authNamePlaceholder = s.authNamePlaceholder,
+                authCityLabel = s.authCityLabel,
+                authCityPlaceholder = s.authCityPlaceholder,
+                authLoginButton = s.authLoginButton,
+                authSignUpButton = s.authSignUpButton,
+                authSwitchToSignUp = s.authSwitchToSignUp,
+                authSwitchToLogin = s.authSwitchToLogin,
+                authErrorInvalidCredentials = s.authErrorInvalidCredentials,
+                authErrorEmailExists = s.authErrorEmailExists,
+                authErrorWeakPassword = s.authErrorWeakPassword,
+                authErrorNotConfigured = s.authErrorNotConfigured,
+                authErrorNetwork = s.authErrorNetwork,
+                authErrorGeneric = s.authErrorGeneric,
             )
         }
     }
@@ -377,6 +427,147 @@ object FeedBridge {
 
     /** The current language code ("de" / "en"). */
     fun currentLanguageCode(): String = currentLanguageCode
+
+    // MARK: Supabase backend (Phase A — inert injection point)
+
+    /**
+     * Flat injection point for the Supabase project [url] + anon [anonKey],
+     * called once from Swift at launch (reading Info.plist). Flat String/String
+     * in, Unit out — no supabase-kt, Ktor, or coroutine type crosses the
+     * boundary (they stay internal to the shared module per the architecture
+     * steering).
+     *
+     * PHASE A: this only forwards to [SupabaseClientProvider.configure], which
+     * treats empty/placeholder values as "not configured" and builds no client.
+     * No network call happens here; auth and persistence are Phases C/D.
+     */
+    fun configureSupabase(url: String, anonKey: String) {
+        SupabaseClientProvider.configure(url, anonKey)
+    }
+
+    /**
+     * Whether a Supabase client has been built (real keys supplied). Flat Bool
+     * out. In Phase A with placeholder keys this stays `false`; exposed so Swift
+     * can tell the inert-until-keys state without touching supabase-kt types.
+     */
+    fun isSupabaseConfigured(): Boolean = SupabaseClientProvider.isConfigured
+
+    // MARK: Authentication (Phase C — flat, callback-based)
+
+    /**
+     * Bridge coroutine scope for the suspend auth operations.
+     *
+     * THREADING: scoped on [Dispatchers.Main], so every auth callback and
+     * auth-state emission below is delivered to Swift ON THE MAIN THREAD. The
+     * Swift `Session` wrapper mutates `@Observable` state directly in these
+     * callbacks, so main-thread delivery is required (and avoids an extra
+     * `DispatchQueue.main.async` hop Swift-side). All suspend/Flow/supabase
+     * types stay INSIDE this scope — only flat Boolean/String cross the
+     * callbacks below (no suspend, Flow, coroutine, or supabase type is ever
+     * visible to Swift).
+     */
+    private val authScope = CoroutineScope(Dispatchers.Main)
+
+    /**
+     * Current authenticated email for the initial Swift state, or "" when there
+     * is no session / the client is unconfigured. Flat String, synchronous.
+     */
+    fun currentAuthEmail(): String = AuthRepository.currentUserEmail()
+
+    /**
+     * Whether there is a live session right now, for the initial Swift state.
+     * Flat Bool, synchronous.
+     */
+    fun isAuthenticated(): Boolean = AuthRepository.isAuthenticated()
+
+    /**
+     * Create a new account. Launches the suspend sign-up on the bridge scope
+     * and delivers the flat outcome to [completion] on the main thread.
+     *
+     * [name] + [city] are passed into the user metadata so the DB
+     * `handle_new_user()` trigger can populate the profile. The [completion]
+     * receives four FLAT values: `(success, isAuthenticated, email, errorCode)`
+     * — all Boolean/String, no suspend/Flow/supabase type crosses.
+     */
+    fun signUp(
+        email: String,
+        password: String,
+        name: String,
+        city: String,
+        completion: (Boolean, Boolean, String, String) -> Unit,
+    ) {
+        authScope.launch {
+            val result = AuthRepository.signUp(email, password, name, city)
+            deliver(result, completion)
+        }
+    }
+
+    /**
+     * Sign in an existing account. Delivers `(success, isAuthenticated, email,
+     * errorCode)` to [completion] on the main thread. Flat types only.
+     */
+    fun signIn(
+        email: String,
+        password: String,
+        completion: (Boolean, Boolean, String, String) -> Unit,
+    ) {
+        authScope.launch {
+            val result = AuthRepository.signIn(email, password)
+            deliver(result, completion)
+        }
+    }
+
+    /**
+     * Sign out the current session. Delivers `(success, isAuthenticated, email,
+     * errorCode)` to [completion] on the main thread (on success
+     * isAuthenticated=false, email=""). Flat types only.
+     */
+    fun signOut(completion: (Boolean, Boolean, String, String) -> Unit) {
+        authScope.launch {
+            val result = AuthRepository.signOut()
+            deliver(result, completion)
+        }
+    }
+
+    /**
+     * Restore a persisted session at startup (supabase-kt loads it from storage
+     * automatically; this awaits that load). Delivers the resulting flat
+     * `(success, isAuthenticated, email, errorCode)` to [completion] on the
+     * main thread. Safe when unconfigured (success=false, "not_configured").
+     */
+    fun restoreSession(completion: (Boolean, Boolean, String, String) -> Unit) {
+        authScope.launch {
+            val result = AuthRepository.restoreSession()
+            deliver(result, completion)
+        }
+    }
+
+    /**
+     * Observe auth-state changes. [listener] is invoked on the main thread with
+     * flat `(isAuthenticated, email)` whenever the session status changes
+     * (sign-in, sign-out, token refresh, restore). Collects the internal GoTrue
+     * `sessionStatus` Flow on the bridge scope — the Flow/SessionStatus types
+     * never leave the shared module; only Boolean/String reach Swift.
+     *
+     * When unconfigured, emits a single `(false, "")` so Swift still gets an
+     * initial logged-out state without crashing.
+     */
+    fun observeAuth(listener: (Boolean, String) -> Unit) {
+        AuthRepository.authStateFlow()
+            .onEach { result -> listener(result.isAuthenticated, result.email) }
+            .launchIn(authScope)
+    }
+
+    /**
+     * Fan a flat [AuthResult] out to a four-arg Swift [completion]. Keeps the
+     * mapping (and the "no nullables cross" guarantee) in one place.
+     */
+    private fun deliver(
+        result: AuthResult,
+        completion: (Boolean, Boolean, String, String) -> Unit,
+    ) {
+        completion(result.success, result.isAuthenticated, result.email, result.errorCode)
+    }
 
     /** Flat localized strings for an explicit [languageCode]. */
     fun strings(languageCode: String): IosStrings = IosStrings.from(languageCode)
@@ -506,7 +697,10 @@ object FeedBridge {
             neighborhood = neighborhood,
             verified = false,
             checkInCount = 0,
-            placeholderColorArgb = argbForCategory(category),
+            // Derived from the category's marker color (full alpha), via the
+            // shared SpotMapping helper so the bridge and the offline cache
+            // agree on the same derivation.
+            placeholderColorArgb = SpotMapping.argbForCategory(category),
             lat = lat,
             lng = lng,
         )
@@ -514,14 +708,41 @@ object FeedBridge {
     }
 
     /**
-     * Derive an opaque ARGB Long from a category label's "#RRGGBB" marker color
-     * (full alpha). Used only as the new spot's [Spot.placeholderColorArgb]
-     * default; the map pin color is resolved separately from the category.
+     * Ask the shared repository to refresh spots from the backend, invoking the
+     * flat [completion] on the main thread when the kick-off has been
+     * scheduled. FLAT: no args, plain closure, no suspend/supabase/SQLDelight
+     * type crosses.
+     *
+     * The refresh itself runs in the background inside the shared module (the
+     * CachingSpotRepository's own scope); [getSpots] triggers it. This hook
+     * simply re-triggers it on demand (e.g. a Swift pull-to-refresh) and lets
+     * Swift re-read [spots] afterwards. A live remote result also arrives via
+     * [observeSpots]. [completion] fires on the main thread via [authScope].
      */
-    private fun argbForCategory(category: String): Long {
-        val hex = SpotCategory.colorHexForLabel(category).removePrefix("#")
-        val rgb = hex.toLong(16)
-        return 0xFF000000L or rgb
+    fun refreshSpots(completion: () -> Unit) {
+        // Reading spots() kicks off the background remote refresh/flush.
+        Spots.repository.getSpots()
+        authScope.launch { completion() }
+    }
+
+    /**
+     * Observe cache changes caused by a background remote refresh or a
+     * pending-insert flush. [listener] is invoked (no args) on the MAIN THREAD
+     * whenever the shared cache changes, so a SwiftUI view can re-read
+     * [spots]. FLAT: no args, plain closure; no suspend/Flow/supabase/SQLDelight
+     * type crosses.
+     *
+     * Optional for the map: the existing MapBaseView already re-reads
+     * FeedData.spots() in-session after a create, and remote refreshes reflect
+     * on the next view appearance. Wiring this listener additionally makes a
+     * background remote refresh/flush reflect LIVE without any user action.
+     */
+    fun observeSpots(listener: () -> Unit) {
+        Spots.setChangeListener {
+            // Hop onto the main thread so Swift @Observable/@State mutations are
+            // safe, mirroring the auth-callback threading contract.
+            authScope.launch { listener() }
+        }
     }
 
     /**

@@ -18,6 +18,7 @@ import SwiftUI
 /// (the current email, and the seeded name/bio/city) is interpolated verbatim.
 struct ProfileEditView: View {
     @Environment(Localization.self) private var loc
+    @Environment(Session.self) private var session
 
     /// Two local tabs for the edit content. Mirrors `ProfileView`'s inline
     /// tab enum on purpose (no shared segmented control exists).
@@ -281,9 +282,10 @@ struct ProfileEditView: View {
         )
     }
 
-    /// Log-out button: bordered with destructive-colored text. No-op.
+    /// Log-out button: bordered with destructive-colored text. Wired to the
+    /// shared session; signing out flips the auth gate back to the login flow.
     private var logoutButton: some View {
-        Button(action: {}) {
+        Button(action: { session.signOut() }) {
             HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: AppTypography.body, weight: .semibold))

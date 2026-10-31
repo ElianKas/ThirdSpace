@@ -1,0 +1,7 @@
+# ThirdSpace Supabase CLI configuration.
+#
+# TODO: set this to YOUR OWN Supabase project ref before running
+#       `supabase link --project-ref <ref>` / `supabase db push`.
+#       You can find it in your Supabase dashboard under Project Settings.
+#       Do NOT reuse the legacy project ref — create/point to your own project.
+project_id = "trgekiecpqjwasooapeg"

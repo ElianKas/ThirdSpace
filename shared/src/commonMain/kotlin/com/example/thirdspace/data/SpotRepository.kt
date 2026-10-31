@@ -1,5 +1,9 @@
 package com.example.thirdspace.data
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+
 /**
  * Read/write access to the set of spots.
  *
@@ -56,10 +60,55 @@ class InMemorySpotRepository(
 }
 
 /**
- * The process-wide spot repository instance. A single in-memory repository for
- * now; swapping in a persistent/synced implementation later means changing only
- * this provider, not the call sites.
+ * The process-wide spot repository provider.
+ *
+ * Phase D: the default [repository] is an offline-first [CachingSpotRepository]
+ * over the SQLDelight-backed [LocalSpotCache] + the supabase-kt
+ * [SupabaseSpotRepository], running its background refresh/flush on a shared
+ * [Dispatchers.Default] scope. The [SpotRepository] interface and the call
+ * sites (FeedBridge.spots()/addSpot) are unchanged — only this provider swapped
+ * in the persistent/synced implementation.
+ *
+ * [InMemorySpotRepository] stays available for tests and as a fallback.
+ *
+ * LISTENER: [setChangeListener] lets the iOS bridge register a flat callback
+ * (delivered on its own Dispatchers.Main scope) that fires after a background
+ * remote refresh or queue flush changes the cache, so Swift can re-read
+ * FeedData.spots(). It is registered via the live repository if that repository
+ * supports it.
  */
 object Spots {
-    val repository: SpotRepository = InMemorySpotRepository()
+
+    /**
+     * Background scope for the caching repository's remote refresh/flush. Uses
+     * [Dispatchers.Default]; the suspend/supabase work stays here and never
+     * reaches Swift. Separate from the bridge's Dispatchers.Main auth scope.
+     */
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** The current onChanged listener, forwarded into the caching repository. */
+    private var changeListener: () -> Unit = {}
+
+    val repository: SpotRepository by lazy { buildDefault() }
+
+    /**
+     * Register a flat [listener] invoked after a background refresh/flush
+     * changes the cache. The bridge wraps this to hop onto Dispatchers.Main.
+     */
+    fun setChangeListener(listener: () -> Unit) {
+        changeListener = listener
+    }
+
+    private fun buildDefault(): SpotRepository =
+        try {
+            CachingSpotRepository(
+                cache = LocalSpotCache.create(),
+                scope = backgroundScope,
+                onChanged = { changeListener() },
+            )
+        } catch (_: Throwable) {
+            // Defensive fallback: if the SQLDelight driver cannot be created in
+            // some environment, serve the in-memory seed rather than crash.
+            InMemorySpotRepository()
+        }
 }

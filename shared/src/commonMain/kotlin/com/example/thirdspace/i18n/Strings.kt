@@ -139,6 +139,31 @@ interface Strings {
     val confirmPasswordPlaceholder: String
     val changePasswordButton: String
 
+    // Auth screens (LoginView / SignUpView) — the logged-out gate. Static UI
+    // text only; the entered email/name/city are dynamic content and are NOT
+    // part of the string table. The logout button reuses the existing [logout]
+    // key above (no separate auth logout key).
+    val authLoginTitle: String
+    val authSignUpTitle: String
+    val authEmailLabel: String
+    val authEmailPlaceholder: String
+    val authPasswordLabel: String
+    val authPasswordPlaceholder: String
+    val authNameLabel: String
+    val authNamePlaceholder: String
+    val authCityLabel: String
+    val authCityPlaceholder: String
+    val authLoginButton: String
+    val authSignUpButton: String
+    val authSwitchToSignUp: String
+    val authSwitchToLogin: String
+    val authErrorInvalidCredentials: String
+    val authErrorEmailExists: String
+    val authErrorWeakPassword: String
+    val authErrorNotConfigured: String
+    val authErrorNetwork: String
+    val authErrorGeneric: String
+
     // Plural / interpolation functions
     /** Check-in suffix: DE "war hier"/"waren hier", EN "was here"/"were here". */
     fun checkInLabel(count: Int): String
@@ -286,6 +311,28 @@ object De : Strings {
     override val confirmPasswordPlaceholder = "Bestätigen"
     override val changePasswordButton = "Passwort ändern"
 
+    // Auth screens
+    override val authLoginTitle = "Anmelden"
+    override val authSignUpTitle = "Konto erstellen"
+    override val authEmailLabel = "E-Mail"
+    override val authEmailPlaceholder = "name@beispiel.de"
+    override val authPasswordLabel = "Passwort"
+    override val authPasswordPlaceholder = "Dein Passwort"
+    override val authNameLabel = "Name"
+    override val authNamePlaceholder = "Wie heißt du?"
+    override val authCityLabel = "Stadt"
+    override val authCityPlaceholder = "Deine Stadt"
+    override val authLoginButton = "Anmelden"
+    override val authSignUpButton = "Registrieren"
+    override val authSwitchToSignUp = "Noch kein Konto? Registrieren"
+    override val authSwitchToLogin = "Schon ein Konto? Anmelden"
+    override val authErrorInvalidCredentials = "E-Mail oder Passwort ist falsch."
+    override val authErrorEmailExists = "Für diese E-Mail existiert bereits ein Konto."
+    override val authErrorWeakPassword = "Das Passwort ist zu schwach."
+    override val authErrorNotConfigured = "Backend ist nicht konfiguriert."
+    override val authErrorNetwork = "Netzwerkfehler. Bitte erneut versuchen."
+    override val authErrorGeneric = "Etwas ist schiefgelaufen."
+
     // Plural / interpolation
     override fun checkInLabel(count: Int): String =
         if (count == 1) "war hier" else "waren hier"
@@ -426,6 +473,28 @@ object En : Strings {
     override val newPasswordPlaceholder = "New password (min. 8 characters)"
     override val confirmPasswordPlaceholder = "Confirm"
     override val changePasswordButton = "Change password"
+
+    // Auth screens
+    override val authLoginTitle = "Log in"
+    override val authSignUpTitle = "Create account"
+    override val authEmailLabel = "Email"
+    override val authEmailPlaceholder = "name@example.com"
+    override val authPasswordLabel = "Password"
+    override val authPasswordPlaceholder = "Your password"
+    override val authNameLabel = "Name"
+    override val authNamePlaceholder = "What's your name?"
+    override val authCityLabel = "City"
+    override val authCityPlaceholder = "Your city"
+    override val authLoginButton = "Log in"
+    override val authSignUpButton = "Sign up"
+    override val authSwitchToSignUp = "No account? Sign up"
+    override val authSwitchToLogin = "Have an account? Log in"
+    override val authErrorInvalidCredentials = "Invalid email or password."
+    override val authErrorEmailExists = "An account with this email already exists."
+    override val authErrorWeakPassword = "That password is too weak."
+    override val authErrorNotConfigured = "Backend is not configured."
+    override val authErrorNetwork = "Network error. Please try again."
+    override val authErrorGeneric = "Something went wrong."
 
     // Plural / interpolation
     override fun checkInLabel(count: Int): String =
