@@ -19,6 +19,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 internal data class PostFeedDto(
     val id: String,
+    // The post author's auth uid (the `post_feed` view selects
+    // `p.author_id AS author_id`). Defaulted so older selects / fakes decode.
+    @SerialName("author_id") val authorId: String = "",
     @SerialName("author_name") val authorName: String = "",
     @SerialName("spot_name") val spotName: String = "",
     val category: String = "",
@@ -47,6 +50,10 @@ internal data class FeedEntryDto(
     val kind: String = "post",
     @SerialName("entry_id") val entryId: String = "",
     val id: String = "",
+    // The author uid for BOTH branches: the post author for a "post" row, the
+    // spot owner for a "spot" row (the `feed_entries` view exposes `author_id`
+    // for both — see migration 0008). Defaulted so older selects / fakes decode.
+    @SerialName("author_id") val authorId: String = "",
     @SerialName("author_name") val authorName: String = "",
     @SerialName("spot_name") val spotName: String = "",
     val category: String = "",
@@ -140,6 +147,7 @@ internal object PostFeedMapping {
         score = dto.score,
         commentCount = dto.commentCount,
         myVote = dto.myVote,
+        authorUserId = dto.authorId,
     )
 
     /**
@@ -164,6 +172,7 @@ internal object PostFeedMapping {
         commentCount = dto.commentCount,
         myVote = dto.myVote,
         kind = dto.kind,
+        authorUserId = dto.authorId,
     )
 }
 
@@ -269,6 +278,7 @@ internal class SupabaseFeedRepository : FeedRemoteSource {
                 authorName = dto.profiles?.name.orEmpty(),
                 text = dto.text,
                 createdAtEpoch = RelativeTime.parseIsoToEpochMillis(dto.createdAt),
+                authorUserId = dto.authorId,
             )
         }
     }

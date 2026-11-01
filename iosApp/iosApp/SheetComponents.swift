@@ -107,8 +107,40 @@ struct SheetWideButton: View {
 /// attribution look and uses only `AppColor` tokens.
 struct CommentRow: View {
     let comment: UIComment
+    /// Phase F5: optional author-tap callback. `CommentsSheetView` passes a
+    /// closure that presents `OtherProfileView` for the comment's author.
+    /// Defaults to `nil` so any display-only call site / preview compiles
+    /// unchanged; the author then renders as plain, non-tappable text. The
+    /// avatar + name become a `Button` only when this is non-nil AND the author
+    /// is tappable (known id, not self) — see `authorTappable`.
+    var onAuthorTap: (() -> Void)? = nil
+
+    /// Whether the author (avatar + name) is tappable. Suppressed for an unknown
+    /// author id, the current user's own comment, or when no callback is wired.
+    private var authorTappable: Bool {
+        onAuthorTap != nil
+            && !comment.authorUserId.isEmpty
+            && comment.authorUserId != FeedData.currentUserId()
+    }
 
     var body: some View {
+        HStack(alignment: .top, spacing: AppDimens.spacingMD) {
+            if authorTappable {
+                Button(action: { onAuthorTap?() }) {
+                    authorIdentity
+                }
+                .buttonStyle(.plain)
+            } else {
+                authorIdentity
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Avatar + "Name · time" header + comment text. Shared between the tappable
+    /// (Button) and non-tappable rendering so the look is identical.
+    private var authorIdentity: some View {
         HStack(alignment: .top, spacing: AppDimens.spacingMD) {
             AvatarView(name: comment.authorName, size: 32)
 
@@ -126,8 +158,6 @@ struct CommentRow: View {
                     .foregroundColor(AppColor.bodyText)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Spacer(minLength: 0)
         }
     }
 }

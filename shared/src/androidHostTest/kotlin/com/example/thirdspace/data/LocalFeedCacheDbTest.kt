@@ -37,7 +37,13 @@ class LocalFeedCacheDbTest {
         driver.close()
     }
 
-    private fun post(id: String, epoch: Long, verified: Boolean = true, kind: String = "post") = FeedPost(
+    private fun post(
+        id: String,
+        epoch: Long,
+        verified: Boolean = true,
+        kind: String = "post",
+        authorUserId: String = "uid-$id",
+    ) = FeedPost(
         id = id,
         authorName = "Author $id",
         spotName = "Spot $id",
@@ -50,14 +56,16 @@ class LocalFeedCacheDbTest {
         commentCount = 3,
         myVote = "UP",
         kind = kind,
+        authorUserId = authorUserId,
     )
 
-    private fun comment(id: String, postId: String, epoch: Long) = FeedComment(
+    private fun comment(id: String, postId: String, epoch: Long, authorUserId: String = "uid-$id") = FeedComment(
         id = id,
         postId = postId,
         authorName = "Author $id",
         text = "Comment $id",
         createdAtEpoch = epoch,
+        authorUserId = authorUserId,
     )
 
     // --- cachedPosts ---
@@ -79,6 +87,30 @@ class LocalFeedCacheDbTest {
         assertEquals(100L, a.createdAtEpoch)
         // PHASE 4: the default-shaped post round-trips as kind "post".
         assertEquals("post", a.kind)
+        // PHASE F3: the author uid round-trips via the new author_user_id column.
+        assertEquals("uid-a", a.authorUserId)
+    }
+
+    @Test
+    fun authorUserIdRoundTripsForPostsAndComments() {
+        // PHASE F3: author_user_id persists + reads back on BOTH feed caches,
+        // including the "" (unknown author) default.
+        cache.upsertPost(post("p1", 100L, authorUserId = "author-1"))
+        cache.upsertPost(post("p2", 200L, authorUserId = ""))
+        val posts = cache.getCachedPosts()
+        assertEquals("author-1", posts.first { it.id == "p1" }.authorUserId)
+        assertEquals("", posts.first { it.id == "p2" }.authorUserId)
+
+        cache.replaceCommentsForPost(
+            "p1",
+            listOf(
+                comment("c1", "p1", 10L, authorUserId = "commenter-1"),
+                comment("c2", "p1", 20L, authorUserId = ""),
+            ),
+        )
+        val comments = cache.getCachedComments("p1")
+        assertEquals("commenter-1", comments.first { it.id == "c1" }.authorUserId)
+        assertEquals("", comments.first { it.id == "c2" }.authorUserId)
     }
 
     @Test

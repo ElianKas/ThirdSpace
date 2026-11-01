@@ -28,6 +28,11 @@ struct CommentsSheetView: View {
     @State private var draft: String = ""
     /// Ensures the bridge seed only happens once.
     @State private var didLoad = false
+    /// Drives the author-profile sheet (Phase F5). The comments sheet is NOT
+    /// inside a `NavigationStack`, so a comment-author tap PRESENTS a NESTED
+    /// sheet of `OtherProfileView` — wrapped in its own `NavigationStack` so the
+    /// other-profile page can push its follower/following lists.
+    @State private var authorProfile: AuthorProfileTarget?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -54,6 +59,15 @@ struct CommentsSheetView: View {
         }
         .background(AppColor.background)
         .onAppear(perform: loadIfNeeded)
+        // Nested author profile sheet (Phase F5). Same project sheet pattern;
+        // wrapped in a NavigationStack so OtherProfileView's sub-pushes work.
+        .sheet(item: $authorProfile) { target in
+            NavigationStack {
+                OtherProfileView(userId: target.userId)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: Header
@@ -70,7 +84,14 @@ struct CommentsSheetView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: AppDimens.spacingXL) {
                 ForEach(comments) { comment in
-                    CommentRow(comment: comment)
+                    CommentRow(
+                        comment: comment,
+                        // Tapping the author opens their profile as a nested
+                        // sheet. CommentRow suppresses the tap for unknown/self.
+                        onAuthorTap: {
+                            authorProfile = AuthorProfileTarget(userId: comment.authorUserId)
+                        }
+                    )
                 }
             }
             .padding(.horizontal, AppDimens.spacingLG)

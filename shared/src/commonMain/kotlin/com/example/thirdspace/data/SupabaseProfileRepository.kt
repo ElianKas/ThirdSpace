@@ -73,6 +73,22 @@ internal interface ProfileRemoteSource {
     suspend fun fetchCurrentProfile(): Profile?
 
     /**
+     * Fetch the `profiles` ROW for an ARBITRARY [userId] (Phase F4 — the
+     * generalized "fetch ANY user's profile" path used to show another user's
+     * profile page). Returns `null` when unavailable (unconfigured), when
+     * [userId] is empty, or when the row is not found. Reads the SAME single-row
+     * `profiles` shape as [fetchCurrentProfile] (which now delegates to this
+     * with the current session uid); a transport/REST error is allowed to
+     * propagate to the caller (caught on the background scope).
+     *
+     * Like [fetchCurrentProfile], the returned [Profile] carries ZERO
+     * spot/post/follower/following counts — the bridge composes the real counts
+     * for another user on demand from the own-content list sizes + the follow
+     * remote counts (see [FeedBridge.loadOtherProfile]).
+     */
+    suspend fun fetchProfile(userId: String): Profile?
+
+    /**
      * UPDATE the own `profiles` row ([userId]) setting `name` / `city` / `bio`.
      * Returns `true` on success; `false` when unavailable (unconfigured) or when
      * [userId] is empty (no session). A transport/REST error is allowed to
@@ -115,8 +131,11 @@ internal interface ProfileRemoteSource {
  * - `monthYear` is DERIVED from `created_at` via [RelativeTime.formatMonthYear]
  *   (a non-translated "Monat Jahr" German label, e.g. "März 2024"); "" when the
  *   timestamp is empty/unparseable.
- * - followerCount / followingCount are always 0 — the social-graph counts stay
- *   DEFERRED (no social graph is built).
+ * - followerCount / followingCount are 0 HERE (in both [toProfile] overloads) —
+ *   this mapping stays social-graph-free. As of Phase F3 the REAL counts are
+ *   folded onto the cached [Profile] at the [ProfileRepository] level (via the
+ *   injected follow-count providers, the same `.copy(...)` injection used for
+ *   the spot/post counts), not inside this pure DTO mapping.
  * - spotCount / postCount are the REAL counts of the current user's own rows.
  *   As of Phase 4 they are DERIVED by [ProfileRepository] from the sizes of the
  *   own-content lists it fetches (`ownSpots().size` / `ownPosts().size`), not
@@ -219,15 +238,25 @@ internal class SupabaseProfileRepository(
      * existing "viewable by authenticated" SELECT RLS policy already allows
      * reading own row. Decodes into [ProfileDto] and maps via [ProfileMapping].
      */
-    override suspend fun fetchCurrentProfile(): Profile? {
+    override suspend fun fetchCurrentProfile(): Profile? = fetchProfile(currentUserId())
+
+    /**
+     * Select the `profiles` row for an ARBITRARY [userId] (Phase F4), using the
+     * SAME single-row `select { filter { eq("id", userId) } }.decodeList<...>()
+     * .firstOrNull()` pattern [fetchCurrentProfile] used — which now delegates
+     * here with the session uid. Returns `null` when unconfigured, when
+     * [userId] is empty, or when no row is found. The existing "viewable by
+     * authenticated" SELECT RLS policy allows reading any profile row. Counts
+     * stay 0 here (derived/composed by the caller).
+     */
+    override suspend fun fetchProfile(userId: String): Profile? {
         val c = client ?: return null
-        val uid = currentUserId()
-        if (uid.isEmpty()) return null
+        if (userId.isEmpty()) return null
         val row = c.from("profiles").select {
-            filter { eq("id", uid) }
+            filter { eq("id", userId) }
         }.decodeList<ProfileDto>().firstOrNull() ?: return null
-        // Phase 4: counts are DERIVED by ProfileRepository from the own-content
-        // list sizes (see the class doc); the profile row itself carries 0s.
+        // Counts are DERIVED by the caller (ProfileRepository for the current
+        // user; the bridge for another user); the profile row itself carries 0s.
         return ProfileMapping.toProfile(row)
     }
 

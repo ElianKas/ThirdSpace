@@ -31,7 +31,13 @@ import kotlinx.coroutines.sync.withLock
  *   are DERIVED from the own-list SIZES (so the stat and the list are always
  *   consistent, one fewer round-trip each than a separate COUNT query).
  *   Back-to-back refreshes COALESCE to one in-flight fetch via an in-flight
- *   guard under a [Mutex] (mirrors [FeedRepository.refresh]).
+ *   guard under a [Mutex] (mirrors [FeedRepository.refresh]). The REAL
+ *   follower/following counts (Phase F3) are ALSO fetched in the same pass (via
+ *   the injected [followerCountProvider] / [followingCountProvider], which
+ *   default to the remote-backed [SupabaseFollowRepository]'s counts) and
+ *   folded onto the cached [Profile] — the same `.copy(...)` injection used for
+ *   the spot/post counts. Best-effort: a failed count fetch keeps the prior
+ *   value (defaulting 0), never crashes.
  * - BEST-EFFORT per sub-query: the own-row / own-posts / own-spots fetches are
  *   independent; a failure of one (e.g. own-spots throwing) does NOT wipe the
  *   others — each falls back to its prior cached value.
@@ -51,7 +57,25 @@ class ProfileRepository internal constructor(
     private val isAuthenticated: () -> Boolean = { AuthRepository.isAuthenticated() },
     private val currentUserId: () -> String = { AuthRepository.currentUserId() },
     private val onChanged: () -> Unit = {},
+    // Phase F3: REAL follower/following count sources for the current user,
+    // folded into the cached Profile the same way spot/post counts are derived.
+    // Injected as flat suspend `(uid) -> Int` seams (defaulting to the
+    // supabase-kt-backed SupabaseFollowRepository's remote counts) so a FAKE can
+    // drive them in tests WITHOUT touching ProfileRemoteSource / the follow
+    // repository's wider surface. Best-effort: a throw / 0 keeps the prior value.
+    private val followerCountProvider: suspend (String) -> Int =
+        defaultFollowRemote::followerCount,
+    private val followingCountProvider: suspend (String) -> Int =
+        defaultFollowRemote::followingCount,
 ) {
+
+    private companion object {
+        // The default remote-backed follow-count source. A single shared
+        // SupabaseFollowRepository instance whose suspend count reads are the
+        // production defaults for followerCountProvider / followingCountProvider.
+        // Unconfigured / offline degrades to 0 internally (never throws).
+        private val defaultFollowRemote: FollowRemoteSource = SupabaseFollowRepository()
+    }
 
     private val syncMutex = Mutex()
 
@@ -158,16 +182,45 @@ class ProfileRepository internal constructor(
                     changed = true
                 }
 
-                // Fetch the profile row, injecting the DERIVED counts from the
-                // (now current) own-list sizes. Best-effort: a thrown fetch keeps
-                // the prior cached row.
+                // Fetch the REAL follower/following counts for the current user
+                // (Phase F3). Best-effort per count: a thrown fetch keeps the
+                // prior cached value (the prior Profile's count, defaulting 0).
+                // These are folded into the cached Profile below the same way
+                // spot/post counts are. Done before the row fetch so both the
+                // fresh-row and keep-prior-row branches can use the latest value.
+                val priorFollowers = cached?.followerCount ?: 0
+                val priorFollowing = cached?.followingCount ?: 0
+                val fetchedFollowers = runCatchingOrNull { followerCountProvider(uid) } ?: priorFollowers
+                val fetchedFollowing = runCatchingOrNull { followingCountProvider(uid) } ?: priorFollowing
+
+                // Fetch the profile row, injecting the DERIVED spot/post counts
+                // from the (now current) own-list sizes AND the real
+                // follower/following counts. Best-effort: a thrown fetch keeps
+                // the prior cached row (but still folds the fresh follow counts
+                // onto it, so a count change without a row change still shows).
                 val fetched = runCatchingOrNull { remote.fetchCurrentProfile() }
                 if (fetched != null) {
                     cached = fetched.copy(
                         spotCount = cachedOwnSpots.size,
                         postCount = cachedOwnPosts.size,
+                        followerCount = fetchedFollowers,
+                        followingCount = fetchedFollowing,
                     )
                     changed = true
+                } else {
+                    // No fresh row, but fold the (possibly updated) follow counts
+                    // onto the prior cached row so a count refresh is not lost.
+                    val prior = cached
+                    if (prior != null &&
+                        (prior.followerCount != fetchedFollowers ||
+                            prior.followingCount != fetchedFollowing)
+                    ) {
+                        cached = prior.copy(
+                            followerCount = fetchedFollowers,
+                            followingCount = fetchedFollowing,
+                        )
+                        changed = true
+                    }
                 }
             } finally {
                 refreshing = false

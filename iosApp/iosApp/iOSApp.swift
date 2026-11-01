@@ -23,10 +23,18 @@ struct iOSApp: App {
     /// (or unconfigured) client.
     @State private var profileStore: ProfileStore
 
+    /// App-wide social-graph (follows) state, injected alongside `profileStore`.
+    /// Backs the Phase F5 follower/following list screens + the other-profile
+    /// follow button. Thin `@Observable` wrapper over the shared `FeedBridge`
+    /// follow seam; constructed AFTER `configureSupabase()` so its reads see the
+    /// configured (or unconfigured) client, mirroring `profileStore`.
+    @State private var followStore: FollowStore
+
     init() {
         Self.configureSupabase()
         _session = State(initialValue: Session())
         _profileStore = State(initialValue: ProfileStore())
+        _followStore = State(initialValue: FollowStore())
     }
 
     /// Read the Supabase project URL + publishable key from Info.plist (seeded
@@ -62,6 +70,7 @@ struct iOSApp: App {
                 .environment(localization)
                 .environment(session)
                 .environment(profileStore)
+                .environment(followStore)
         }
     }
 }

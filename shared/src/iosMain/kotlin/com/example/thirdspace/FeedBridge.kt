@@ -4,7 +4,12 @@ import com.example.thirdspace.data.AuthRepository
 import com.example.thirdspace.data.AuthResult
 import com.example.thirdspace.data.Feed
 import com.example.thirdspace.data.FeedPost
+import com.example.thirdspace.data.FollowUser
+import com.example.thirdspace.data.Follows
+import com.example.thirdspace.data.ProfileMapping
 import com.example.thirdspace.data.Profiles
+import com.example.thirdspace.data.SupabaseFollowRepository
+import com.example.thirdspace.data.SupabaseProfileRepository
 import com.example.thirdspace.data.RelativeTime
 import com.example.thirdspace.data.SampleData
 import com.example.thirdspace.data.Spot
@@ -37,6 +42,9 @@ import kotlinx.coroutines.withContext
  * - [kind] is a flat "post" / "spot" discriminator (Phase 4). A "spot" entry is
  *   a bare spot with no post; Swift hides the post-only chrome (caption + vote +
  *   comment) for it while keeping the spot header. "post" is the default shape.
+ * - [authorUserId] is the post author's auth uid (= profiles.id), "" when
+ *   unknown (Phase F3). Flat non-null String; a later UI phase uses it to open
+ *   the author's profile. For a bare "spot" entry it is the spot owner's uid.
  */
 data class IosPost(
     val id: String,
@@ -53,6 +61,7 @@ data class IosPost(
     val commentCount: Int,
     val colorHex: String,
     val kind: String,
+    val authorUserId: String,
 )
 
 /**
@@ -95,12 +104,17 @@ data class IosFilterChip(
  * Only String crosses the boundary (no nullables, no Long, no enums). Mirrors
  * the shared [com.example.thirdspace.data.Comment] so the comments list has a
  * single source of truth in the shared module. No replies/threading.
+ *
+ * [authorUserId] is the comment author's auth uid (= profiles.id), "" when
+ * unknown (Phase F3). Flat non-null String; a later UI phase uses it to open
+ * the author's profile.
  */
 data class IosComment(
     val id: String,
     val authorName: String,
     val timeLabel: String,
     val text: String,
+    val authorUserId: String,
 )
 
 /**
@@ -152,6 +166,28 @@ data class IosProfile(
     val postCount: Int,
     val followerCount: Int,
     val followingCount: Int,
+)
+
+/**
+ * Flat, ObjC-friendly snapshot of a single follower / following list entry for
+ * the SwiftUI social-graph screens (Phase F4).
+ *
+ * Only String / Boolean cross the boundary (no nullables, no Long, no enums).
+ * Mirrors the shared [com.example.thirdspace.data.FollowUser] so the
+ * follower/following lists have a single source of truth in the shared module.
+ *
+ * - [id]             — the listed user's auth uid (= `profiles.id`).
+ * - [name] / [city]  — dynamic content (NOT translated), "" when unavailable.
+ * - [username]       — cosmetic, derived shared-side.
+ * - [isFollowedByMe] — whether the CURRENT viewer already follows this user
+ *                      (drives a follow/unfollow button in the F5 UI).
+ */
+data class IosFollowUser(
+    val id: String,
+    val name: String,
+    val username: String,
+    val city: String,
+    val isFollowedByMe: Boolean,
 )
 
 /**
@@ -236,6 +272,13 @@ data class IosStrings(
     val profileEmptySpots: String,
     val profileEmptyPosts: String,
     val profileSettings: String,
+    // Follow feature (Phase F5)
+    val followButton: String,
+    val unfollowButton: String,
+    val followListFollowersTitle: String,
+    val followListFollowingTitle: String,
+    val followSearchPlaceholder: String,
+    val followEmpty: String,
     // Profile edit screen
     val profileEditTitle: String,
     val editTabProfile: String,
@@ -371,6 +414,12 @@ data class IosStrings(
                 profileEmptySpots = s.profileEmptySpots,
                 profileEmptyPosts = s.profileEmptyPosts,
                 profileSettings = s.profileSettings,
+                followButton = s.followButton,
+                unfollowButton = s.unfollowButton,
+                followListFollowersTitle = s.followListFollowersTitle,
+                followListFollowingTitle = s.followListFollowingTitle,
+                followSearchPlaceholder = s.followSearchPlaceholder,
+                followEmpty = s.followEmpty,
                 profileEditTitle = s.profileEditTitle,
                 editTabProfile = s.editTabProfile,
                 editTabAccount = s.editTabAccount,
@@ -524,6 +573,14 @@ object FeedBridge {
     fun isAuthenticated(): Boolean = AuthRepository.isAuthenticated()
 
     /**
+     * The current authenticated user's id (= `profiles.id`), or "" when there
+     * is no session / the client is unconfigured. Flat String, synchronous, no
+     * callback. Used Swift-side (Phase F5) to hide the follow button on your
+     * own profile and suppress self author-taps in the feed/comments.
+     */
+    fun currentUserId(): String = AuthRepository.currentUserId()
+
+    /**
      * Create a new account. Launches the suspend sign-up on the bridge scope
      * and delivers the flat outcome to [completion] on the main thread.
      *
@@ -650,7 +707,9 @@ object FeedBridge {
      * prefix is applied Swift-side via IosStrings. spotCount/postCount are the
      * REAL counts of the current user's own spots/posts (derived from the
      * fetched own-content list sizes; see [Profiles]/[ownSpots]/[ownPosts]).
-     * followerCount/followingCount stay 0 (the social graph is deferred).
+     * followerCount/followingCount are now the REAL social-graph counts of the
+     * current user, folded onto the cached [Profile] by [ProfileRepository]
+     * (Phase F3) — they are no longer hardcoded to 0.
      */
     fun profile(): IosProfile {
         val p = Profiles.repository.current()
@@ -753,6 +812,231 @@ object FeedBridge {
         Profiles.clear()
     }
 
+    // MARK: Follows + other-user profiles (flat, callback-based) — Phase F4
+
+    /**
+     * Last-fetched OTHER-user profile snapshots, keyed by uid. There is NO
+     * durable other-profile cache (per the F4 brief); this is an in-memory
+     * single-level holder populated by [loadOtherProfile] and read PURELY by
+     * [otherProfile]. Guarded by [otherProfileLock] because the pure read runs
+     * on the Swift caller thread while [loadOtherProfile] writes on [workScope].
+     */
+    @kotlin.concurrent.Volatile
+    private var otherProfiles: Map<String, IosProfile> = emptyMap()
+
+    /** Build a flat [IosFollowUser] from a shared [FollowUser]. */
+    private fun FollowUser.toIos(): IosFollowUser = IosFollowUser(
+        id = id,
+        name = name,
+        username = username,
+        city = city,
+        isFollowedByMe = isFollowedByMe,
+    )
+
+    /**
+     * Follow [targetId] through the shared [Follows] seam: OPTIMISTIC in-memory
+     * follow-state + count bump (observers re-read at once via [observeFollows])
+     * then a best-effort remote push. The flat [completion] receives the
+     * `Boolean` outcome on the MAIN THREAD (`false` = not persisted remotely:
+     * offline / unauth / self-follow / already following — NO durable queue).
+     * FLAT: String arg + a Bool closure; no suspend/supabase type crosses.
+     */
+    fun followUser(targetId: String, completion: (Boolean) -> Unit) {
+        Follows.follow(targetId) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Unfollow [targetId] through the shared [Follows] seam (same optimistic +
+     * best-effort + flat-Bool-on-main contract as [followUser]).
+     */
+    fun unfollowUser(targetId: String, completion: (Boolean) -> Unit) {
+        Follows.unfollow(targetId) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Whether the CURRENT user follows [targetId] — a PURE cache read
+     * ([FollowRepository.isFollowing]); `false` before any [loadFollowState] /
+     * optimistic [followUser]. No remote fetch. Flat Bool out.
+     */
+    fun isFollowing(targetId: String): Boolean = Follows.repository.isFollowing(targetId)
+
+    /**
+     * Explicitly refresh whether the current user follows [targetId] from the
+     * backend; the flat [completion] fires (no args) on the MAIN THREAD once the
+     * refresh is kicked off. Swift re-reads [isFollowing] in it. Mirrors
+     * [loadProfile]/[loadFeed]. A live change also arrives via [observeFollows].
+     */
+    fun loadFollowState(targetId: String, completion: () -> Unit) {
+        Follows.refreshFollowState(targetId)
+        onMain { completion() }
+    }
+
+    /**
+     * The cached FOLLOWERS of [userId] as flat [IosFollowUser] — a PURE read
+     * ([FollowRepository.followersOf]); empty before the first [loadFollowers].
+     * No remote fetch.
+     */
+    fun followers(userId: String): List<IosFollowUser> =
+        Follows.repository.followersOf(userId).map { it.toIos() }
+
+    /**
+     * The cached FOLLOWING list of [userId] as flat [IosFollowUser] — a PURE
+     * read ([FollowRepository.followingOf]); empty before the first
+     * [loadFollowing]. No remote fetch.
+     */
+    fun following(userId: String): List<IosFollowUser> =
+        Follows.repository.followingOf(userId).map { it.toIos() }
+
+    /**
+     * Explicitly refresh [userId]'s FOLLOWERS list from the backend; the flat
+     * [completion] fires (no args) on the MAIN THREAD once kicked off. Swift
+     * re-reads [followers] in it. A live change also arrives via [observeFollows].
+     */
+    fun loadFollowers(userId: String, completion: () -> Unit) {
+        Follows.refreshFollowers(userId)
+        onMain { completion() }
+    }
+
+    /**
+     * Explicitly refresh [userId]'s FOLLOWING list from the backend; the flat
+     * [completion] fires (no args) on the MAIN THREAD once kicked off. Swift
+     * re-reads [following] in it.
+     */
+    fun loadFollowing(userId: String, completion: () -> Unit) {
+        Follows.refreshFollowing(userId)
+        onMain { completion() }
+    }
+
+    /**
+     * Explicitly refresh [userId]'s follower + following COUNTS from the
+     * backend (so a profile page can refresh ANOTHER user's counts); the flat
+     * [completion] fires (no args) on the MAIN THREAD once kicked off. Swift
+     * re-reads [followerCount]/[followingCount] in it.
+     */
+    fun loadFollowCounts(userId: String, completion: () -> Unit) {
+        Follows.refreshCounts(userId)
+        onMain { completion() }
+    }
+
+    /**
+     * Cached follower count of [userId] — a PURE read
+     * ([FollowRepository.followerCount]); 0 before the first [loadFollowCounts].
+     */
+    fun followerCount(userId: String): Int = Follows.repository.followerCount(userId)
+
+    /**
+     * Cached following count of [userId] — a PURE read
+     * ([FollowRepository.followingCount]); 0 before the first [loadFollowCounts].
+     */
+    fun followingCount(userId: String): Int = Follows.repository.followingCount(userId)
+
+    /**
+     * Observe follow-graph changes caused by a background refresh or an
+     * optimistic follow/unfollow. [listener] is invoked (no args) on the MAIN
+     * THREAD so a SwiftUI view can re-read [followers]/[following]/[isFollowing]
+     * /the counts. FLAT: no args, plain closure. Mirrors [observeProfile].
+     */
+    fun observeFollows(listener: () -> Unit) {
+        Follows.setChangeListener {
+            onMain { listener() }
+        }
+    }
+
+    /**
+     * The LAST-FETCHED snapshot of ANOTHER user's profile for [userId] — a PURE
+     * read from the in-memory [otherProfiles] holder populated by
+     * [loadOtherProfile]. Returns a NEUTRAL [IosProfile] (blanks + zero counts)
+     * when not yet fetched for [userId]. Does NOT fetch. Flat [IosProfile] out
+     * (non-null); no suspend/supabase/nullable type crosses.
+     */
+    fun otherProfile(userId: String): IosProfile =
+        otherProfiles[userId] ?: neutralProfile(email = "")
+
+    /**
+     * Fetch ANOTHER user's profile ([userId]) on the background [workScope],
+     * best-effort, and store the composed flat [IosProfile] in [otherProfiles]
+     * (keyed by [userId]) for [otherProfile] to read; then invoke the flat
+     * [completion] (no args) on the MAIN THREAD. Swift re-reads [otherProfile]
+     * in it.
+     *
+     * Composes, all best-effort (a throw / empty on any part degrades that part
+     * to a neutral/zero value — the snapshot is still stored so the UI shows a
+     * blank-but-safe state rather than crashing):
+     * - the `profiles` ROW via [SupabaseProfileRepository.fetchProfile],
+     * - the own post/spot COUNTS via `fetchOwnPosts/fetchOwnSpots(userId).size`,
+     * - the REAL follower/following counts via
+     *   [SupabaseFollowRepository.followerCount]/[followingCount].
+     *
+     * ALL suspend/supabase/coroutine work stays INTERNAL to [workScope]; only
+     * the flat completion crosses. No durable cache is added for other users.
+     */
+    fun loadOtherProfile(userId: String, completion: () -> Unit) {
+        workScope.launch {
+            val composed = composeOtherProfile(userId)
+            // Replace-with-copy so the @Volatile var publishes an immutable map
+            // (the pure [otherProfile] read never sees a half-mutated map).
+            otherProfiles = otherProfiles + (userId to composed)
+            withContext(Dispatchers.Main) { completion() }
+        }
+    }
+
+    /**
+     * Best-effort composition of another user's flat [IosProfile] (runs on
+     * [workScope]). Each sub-fetch degrades independently to a neutral/zero
+     * value on failure so a partial result is still shown.
+     */
+    private suspend fun composeOtherProfile(userId: String): IosProfile {
+        if (userId.isEmpty()) return neutralProfile(email = "")
+        val profileRemote = SupabaseProfileRepository()
+        val followRemote = SupabaseFollowRepository()
+        val row = runCatchingOrNull { profileRemote.fetchProfile(userId) }
+        val postCount = runCatchingOrNull { profileRemote.fetchOwnPosts(userId).size } ?: 0
+        val spotCount = runCatchingOrNull { profileRemote.fetchOwnSpots(userId).size } ?: 0
+        val followers = runCatchingOrNull { followRemote.followerCount(userId) } ?: 0
+        val followingCount = runCatchingOrNull { followRemote.followingCount(userId) } ?: 0
+        return if (row != null) {
+            IosProfile(
+                name = row.name,
+                username = row.username,
+                city = row.city,
+                monthYear = row.monthYear,
+                bio = row.bio,
+                email = row.email,
+                spotCount = spotCount,
+                postCount = postCount,
+                followerCount = followers,
+                followingCount = followingCount,
+            )
+        } else {
+            // Row unavailable (offline / unconfigured / unauth / not found):
+            // still return a neutral snapshot with whatever counts resolved.
+            neutralProfile(email = "").copy(
+                spotCount = spotCount,
+                postCount = postCount,
+                followerCount = followers,
+                followingCount = followingCount,
+            )
+        }
+    }
+
+    /** Neutral, non-dummy [IosProfile] (blanks + [email] + zero counts). */
+    private fun neutralProfile(email: String): IosProfile = IosProfile(
+        name = "",
+        username = "",
+        city = "",
+        monthYear = "",
+        bio = "",
+        email = email,
+        spotCount = 0,
+        postCount = 0,
+        followerCount = 0,
+        followingCount = 0,
+    )
+
+    /** Run [block], returning its result or `null` if it threw (best-effort). */
+    private inline fun <T> runCatchingOrNull(block: () -> T): T? =
+        try { block() } catch (_: Throwable) { null }
+
     /**
      * The feed, sourced from the shared offline-first [Feed.posts] repository
      * (cache-first + background remote refresh), mapped to flat [IosPost].
@@ -815,6 +1099,9 @@ object FeedBridge {
         // PHASE 4: "post" / "spot" discriminator. ownPosts() always maps real
         // posts, so those correctly carry kind = "post".
         kind = post.kind,
+        // PHASE F3: the author's uid (= profiles.id), "" when unknown. Flat
+        // non-null String; a later UI phase opens the author's profile with it.
+        authorUserId = post.authorUserId,
     )
 
     /**
@@ -1087,6 +1374,8 @@ object FeedBridge {
                 // the current language (replacing SampleData's baked labels).
                 timeLabel = RelativeTime.format(comment.createdAtEpoch, now, currentLanguageCode),
                 text = comment.text,
+                // PHASE F3: the author's uid (= profiles.id), "" when unknown.
+                authorUserId = comment.authorUserId,
             )
         }
     }

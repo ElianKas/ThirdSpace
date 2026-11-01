@@ -1,0 +1,17 @@
+-- Migrate v3 (feed cache without an author uid) -> v4: add the
+-- `author_user_id` column to BOTH feed caches (cachedPosts + cachedComments) so
+-- the client can later open a post/comment author's profile. The DEFAULT ''
+-- backfills every existing cached row (the author uid is unknown for rows cached
+-- before this migration), matching the .sq fresh-install default — so an
+-- existing on-device DB is migrated IN PLACE rather than crashing with
+-- `no such column: author_user_id` on the first
+-- `SELECT ... author_user_id FROM cachedPosts` / `... FROM cachedComments`.
+--
+-- The presence of this file auto-bumps the generated ThirdSpaceDb schema version
+-- to 4 (1.sq = v1, 1.sqm -> v2, 2.sqm -> v3, 3.sqm -> v4);
+-- `deriveSchemaFromMigrations` stays OFF, so the .sq continues to describe the
+-- current schema for fresh installs while this migration upgrades older
+-- databases. The driver runs this migration inside its own transaction.
+
+ALTER TABLE cachedPosts ADD COLUMN author_user_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE cachedComments ADD COLUMN author_user_id TEXT NOT NULL DEFAULT '';

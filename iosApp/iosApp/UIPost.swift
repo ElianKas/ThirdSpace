@@ -72,6 +72,7 @@ struct UIPost: Identifiable {
     let commentCount: Int
     let colorHex: String      // "#RRGGBB"
     let kind: String          // "post" / "spot" (Phase 4)
+    let authorUserId: String  // author's uid (= profiles.id), "" when unknown (Phase F3)
 
     var hasText: Bool { !text.isEmpty }
 
@@ -95,6 +96,7 @@ struct UIPost: Identifiable {
         self.commentCount = Int(bridged.commentCount)
         self.colorHex = bridged.colorHex
         self.kind = bridged.kind
+        self.authorUserId = bridged.authorUserId
     }
 }
 
@@ -129,24 +131,28 @@ struct UIComment: Identifiable {
     let authorName: String
     let timeLabel: String
     let text: String
+    let authorUserId: String  // author's uid (= profiles.id), "" when unknown (Phase F3)
 
     init(bridged: IosComment) {
         self.id = bridged.id
         self.authorName = bridged.authorName
         self.timeLabel = bridged.timeLabel
         self.text = bridged.text
+        self.authorUserId = bridged.authorUserId
     }
 
     /// Local-only initializer, currently UNUSED. Comment creation now persists
     /// through the bridge (`FeedData.addComment` -> optimistic local
     /// write-through + offline queue to Supabase), after which the Comments
     /// sheet re-reads `comments(postId:)`, so comments are no longer built
-    /// locally via this initializer.
-    init(id: String, authorName: String, timeLabel: String, text: String) {
+    /// locally via this initializer. `authorUserId` defaults to "" so existing
+    /// call sites compile unchanged (Phase F3).
+    init(id: String, authorName: String, timeLabel: String, text: String, authorUserId: String = "") {
         self.id = id
         self.authorName = authorName
         self.timeLabel = timeLabel
         self.text = text
+        self.authorUserId = authorUserId
     }
 }
 
@@ -444,5 +450,116 @@ enum FeedData {
             lat: lat,
             lng: lng
         )
+    }
+
+    // MARK: - Follows + other-user profiles (Phase F4)
+
+    /// The current authenticated user's id (= `profiles.id`), or "" when there
+    /// is no session / the client is unconfigured. A flat, synchronous pure
+    /// read (no callback). Used Swift-side (Phase F5) to hide the follow button
+    /// on your own profile and suppress self author-taps in the feed/comments.
+    static func currentUserId() -> String {
+        FeedBridge.shared.currentUserId()
+    }
+
+    /// Follow `targetId` through the shared follow seam (optimistic + best-effort
+    /// remote push). The flat `completion` fires on the MAIN thread with the
+    /// `Bool` outcome; `false` means NOT persisted remotely (offline / unauth /
+    /// self-follow / already following — no durable queue). The bridged Kotlin
+    /// closure hands back a boxed `KotlinBoolean`; unbox it at the boundary.
+    static func followUser(targetId: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.followUser(targetId: targetId) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Unfollow `targetId` (same optimistic + best-effort + flat-Bool-on-main
+    /// contract as `followUser`).
+    static func unfollowUser(targetId: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.unfollowUser(targetId: targetId) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Whether the current user follows `targetId` — a PURE cache read (no
+    /// remote fetch). `false` before any `loadFollowState` / optimistic follow.
+    static func isFollowing(targetId: String) -> Bool {
+        FeedBridge.shared.isFollowing(targetId: targetId)
+    }
+
+    /// Kick off a background refresh of whether the current user follows
+    /// `targetId`. The flat `completion` fires on the MAIN thread once the
+    /// refresh is scheduled; callers re-read `isFollowing(targetId:)` in it.
+    static func loadFollowState(targetId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadFollowState(targetId: targetId, completion: completion)
+    }
+
+    /// The cached FOLLOWERS of `userId` as `UIFollowUser` — a PURE cache read
+    /// (empty before the first `loadFollowers`). No remote fetch.
+    static func followers(userId: String) -> [UIFollowUser] {
+        FeedBridge.shared.followers(userId: userId).map { UIFollowUser(bridged: $0) }
+    }
+
+    /// The cached FOLLOWING list of `userId` as `UIFollowUser` — a PURE cache
+    /// read (empty before the first `loadFollowing`). No remote fetch.
+    static func following(userId: String) -> [UIFollowUser] {
+        FeedBridge.shared.following(userId: userId).map { UIFollowUser(bridged: $0) }
+    }
+
+    /// Kick off a background refresh of `userId`'s FOLLOWERS list. The flat
+    /// `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `followers(userId:)` in it.
+    static func loadFollowers(userId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadFollowers(userId: userId, completion: completion)
+    }
+
+    /// Kick off a background refresh of `userId`'s FOLLOWING list. The flat
+    /// `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `following(userId:)` in it.
+    static func loadFollowing(userId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadFollowing(userId: userId, completion: completion)
+    }
+
+    /// Kick off a background refresh of `userId`'s follower + following COUNTS
+    /// (so a profile page can refresh another user's counts). The flat
+    /// `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `followerCount`/`followingCount` in it.
+    static func loadFollowCounts(userId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadFollowCounts(userId: userId, completion: completion)
+    }
+
+    /// Cached follower count of `userId` — a PURE read (0 before the first
+    /// `loadFollowCounts`). The bridged value is a boxed `Int32`; unbox it.
+    static func followerCount(userId: String) -> Int {
+        Int(FeedBridge.shared.followerCount(userId: userId))
+    }
+
+    /// Cached following count of `userId` — a PURE read (0 before the first
+    /// `loadFollowCounts`).
+    static func followingCount(userId: String) -> Int {
+        Int(FeedBridge.shared.followingCount(userId: userId))
+    }
+
+    /// Register a flat listener invoked on the MAIN thread whenever the shared
+    /// follow graph changes (background refresh or optimistic follow/unfollow),
+    /// so the UI can re-read the follow lists / counts / state. Register once
+    /// per view lifetime. Mirrors `observeProfile`.
+    static func observeFollows(_ listener: @escaping () -> Void) {
+        FeedBridge.shared.observeFollows(listener: listener)
+    }
+
+    /// The last-fetched snapshot of ANOTHER user's profile for `userId` — a PURE
+    /// read from the bridge's in-memory holder (populated by `loadOtherProfile`).
+    /// Returns a neutral `UIProfile` when not yet fetched. Does NOT fetch.
+    static func otherProfile(userId: String) -> UIProfile {
+        UIProfile(bridged: FeedBridge.shared.otherProfile(userId: userId))
+    }
+
+    /// Kick off a best-effort background fetch of ANOTHER user's profile (row +
+    /// own post/spot counts + real follower/following counts). The flat
+    /// `completion` fires on the MAIN thread once the fetch resolves; callers
+    /// re-read `otherProfile(userId:)` in it. No durable cache is kept.
+    static func loadOtherProfile(userId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadOtherProfile(userId: userId, completion: completion)
     }
 }

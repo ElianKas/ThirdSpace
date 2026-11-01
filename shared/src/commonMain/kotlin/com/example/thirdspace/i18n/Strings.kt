@@ -119,6 +119,16 @@ interface Strings {
     val profileEmptyPosts: String
     val profileSettings: String
 
+    // Follow feature (Phase F5) — follow/unfollow button + follower/following
+    // list screens. Static UI text only; names/usernames/cities in the lists
+    // are dynamic content and are NOT part of the string table.
+    val followButton: String
+    val unfollowButton: String
+    val followListFollowersTitle: String
+    val followListFollowingTitle: String
+    val followSearchPlaceholder: String
+    val followEmpty: String
+
     // Profile edit screen (ProfileEditView) — static UI text only; the current
     // email and the seeded name/bio/city are dynamic content and are NOT part
     // of the string table.
@@ -301,6 +311,14 @@ object De : Strings {
     override val profileEmptyPosts = "Noch keine Posts"
     override val profileSettings = "Einstellungen"
 
+    // Follow feature
+    override val followButton = "Folgen"
+    override val unfollowButton = "Entfolgen"
+    override val followListFollowersTitle = "Follower"
+    override val followListFollowingTitle = "Folge ich"
+    override val followSearchPlaceholder = "Personen suchen"
+    override val followEmpty = "Noch niemand hier"
+
     // Profile edit screen
     override val profileEditTitle = "Profil-Einstellungen"
     override val editTabProfile = "Profil"
@@ -471,6 +489,14 @@ object En : Strings {
     override val profileEmptySpots = "No spots yet"
     override val profileEmptyPosts = "No posts yet"
     override val profileSettings = "Settings"
+
+    // Follow feature
+    override val followButton = "Follow"
+    override val unfollowButton = "Unfollow"
+    override val followListFollowersTitle = "Followers"
+    override val followListFollowingTitle = "Following"
+    override val followSearchPlaceholder = "Search people"
+    override val followEmpty = "Nobody here yet"
 
     // Profile edit screen
     override val profileEditTitle = "Profile settings"

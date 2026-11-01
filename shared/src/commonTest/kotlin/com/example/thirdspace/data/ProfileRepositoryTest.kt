@@ -61,6 +61,11 @@ class ProfileRepositoryTest {
             return result
         }
 
+        // Phase F4: generalized "fetch any user's profile" — the fake returns
+        // the same canned row regardless of uid (the repository under test only
+        // uses fetchCurrentProfile; this satisfies the interface).
+        override suspend fun fetchProfile(userId: String): Profile? = result
+
         override suspend fun updateProfile(
             userId: String,
             name: String,
@@ -294,6 +299,7 @@ class ProfileRepositoryTest {
             var ownPostsCount = 0
             override fun isAvailable() = true
             override suspend fun fetchCurrentProfile(): Profile? = null
+            override suspend fun fetchProfile(userId: String): Profile? = null
             override suspend fun updateProfile(
                 userId: String,
                 name: String,
@@ -451,6 +457,7 @@ class ProfileRepositoryTest {
         val remote = object : ProfileRemoteSource {
             override fun isAvailable() = true
             override suspend fun fetchCurrentProfile(): Profile? = seeded
+            override suspend fun fetchProfile(userId: String): Profile? = seeded
             override suspend fun updateProfile(
                 userId: String,
                 name: String,
@@ -493,6 +500,7 @@ class ProfileRepositoryTest {
         val remote = object : ProfileRemoteSource {
             override fun isAvailable() = true
             override suspend fun fetchCurrentProfile(): Profile? = cached
+            override suspend fun fetchProfile(userId: String): Profile? = cached
             override suspend fun updateProfile(
                 userId: String,
                 name: String,
@@ -727,5 +735,87 @@ class ProfileRepositoryTest {
         assertTrue(repo.ownSpots().isEmpty())
         // onChanged fired for the clear so observers re-read the neutral state.
         assertTrue(notified > notifiedAfterRefresh)
+    }
+
+    // --- Phase F3: real follower/following counts folded into the profile ---
+
+    @Test
+    fun refreshFoldsRealFollowerAndFollowingCountsOntoProfile() {
+        // The injected follow-count providers (defaulting to the remote-backed
+        // SupabaseFollowRepository in production) are faked here to return real
+        // counts; refresh() must fold them onto the cached profile (the same
+        // .copy injection used for spot/post counts), replacing the mapping's 0s.
+        val remote = FakeRemote(available = true, result = profileRow())
+        val repo = ProfileRepository(
+            scope = scope, remote = remote,
+            isAuthenticated = { true }, currentUserId = { "u-1" },
+            followerCountProvider = { uid -> if (uid == "u-1") 42 else 0 },
+            followingCountProvider = { uid -> if (uid == "u-1") 7 else 0 },
+        )
+        repo.refresh()
+        assertEquals(42, repo.current()?.followerCount)
+        assertEquals(7, repo.current()?.followingCount)
+    }
+
+    @Test
+    fun refreshFollowCountFetchesUseCurrentUserId() {
+        // The count providers must be called with the CURRENT user id.
+        var followerUid: String? = null
+        var followingUid: String? = null
+        val remote = FakeRemote(available = true, result = profileRow())
+        val repo = ProfileRepository(
+            scope = scope, remote = remote,
+            isAuthenticated = { true }, currentUserId = { "user-99" },
+            followerCountProvider = { uid -> followerUid = uid; 3 },
+            followingCountProvider = { uid -> followingUid = uid; 5 },
+        )
+        repo.refresh()
+        assertEquals("user-99", followerUid)
+        assertEquals("user-99", followingUid)
+        assertEquals(3, repo.current()?.followerCount)
+        assertEquals(5, repo.current()?.followingCount)
+    }
+
+    @Test
+    fun throwingFollowerCountKeepsPriorValueBestEffort() {
+        // Best-effort: a first refresh populates real counts; a later refresh
+        // whose follower-count fetch THROWS must keep the prior follower count
+        // (not wipe it to 0) while still applying the fresh following count.
+        var followerThrows = false
+        val remote = FakeRemote(available = true, result = profileRow())
+        val repo = ProfileRepository(
+            scope = scope, remote = remote,
+            isAuthenticated = { true }, currentUserId = { "u-1" },
+            followerCountProvider = {
+                if (followerThrows) throw RuntimeException("boom-followers")
+                11
+            },
+            followingCountProvider = { 4 },
+        )
+        repo.refresh()
+        assertEquals(11, repo.current()?.followerCount)
+        assertEquals(4, repo.current()?.followingCount)
+
+        // Next refresh: follower-count throws -> prior 11 kept, following re-applied.
+        followerThrows = true
+        repo.refresh()
+        assertEquals(11, repo.current()?.followerCount)
+        assertEquals(4, repo.current()?.followingCount)
+    }
+
+    @Test
+    fun followCountsDefaultToZeroWhenProvidersReturnZero() {
+        // With no real follow data (providers return 0 — the unconfigured /
+        // offline degradation of the remote), the profile shows 0/0, preserving
+        // the prior behavior for the no-social-graph case.
+        val remote = FakeRemote(available = true, result = profileRow())
+        val repo = ProfileRepository(
+            scope = scope, remote = remote, isAuthenticated = { true },
+            followerCountProvider = { 0 },
+            followingCountProvider = { 0 },
+        )
+        repo.refresh()
+        assertEquals(0, repo.current()?.followerCount)
+        assertEquals(0, repo.current()?.followingCount)
     }
 }

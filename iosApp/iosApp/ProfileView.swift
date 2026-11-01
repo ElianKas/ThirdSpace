@@ -233,10 +233,24 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack(spacing: 0) {
+            // Spots / Posts stay non-tappable (no list to open for them).
             StatColumn(value: profile.spotCount, label: loc.strings.profileStatSpots)
             StatColumn(value: profile.postCount, label: loc.strings.profileStatPosts)
-            StatColumn(value: profile.followerCount, label: loc.strings.profileStatFollowers)
-            StatColumn(value: profile.followingCount, label: loc.strings.profileStatFollowing)
+            // Follower / Following push the CURRENT user's list (we're already
+            // in the Profile tab's NavigationStack). The current user's id comes
+            // from the flat `FeedData.currentUserId()` bridge getter.
+            NavigationLink {
+                FollowListView(userId: FeedData.currentUserId(), mode: .followers)
+            } label: {
+                StatColumn(value: profile.followerCount, label: loc.strings.profileStatFollowers)
+            }
+            .buttonStyle(.plain)
+            NavigationLink {
+                FollowListView(userId: FeedData.currentUserId(), mode: .following)
+            } label: {
+                StatColumn(value: profile.followingCount, label: loc.strings.profileStatFollowing)
+            }
+            .buttonStyle(.plain)
         }
     }
 

@@ -114,7 +114,12 @@ CREATE TABLE cachedPosts (
     -- PHASE 4: feed entry kind ("post" / "spot"). Posts are the DEFAULT so an
     -- on-device v<=2 DB (added by 2.sqm) and fresh installs agree. A "spot"
     -- entry is a bare spot with no post (empty text, 0 score/comments).
-    kind TEXT NOT NULL DEFAULT 'post'
+    kind TEXT NOT NULL DEFAULT 'post',
+    -- PHASE F3: the post author's auth uid (= profiles.id), so a later UI phase
+    -- can open the author's profile. DEFAULT '' so an on-device v<=3 DB (added
+    -- by 3.sqm) and fresh installs agree; '' when the author is unknown (offline
+    -- seed). For a bare-spot entry this is the spot owner's uid.
+    author_user_id TEXT NOT NULL DEFAULT ''
 );
 
 -- ---------------------------------------------------------------------------
@@ -128,7 +133,11 @@ CREATE TABLE cachedComments (
     post_id TEXT NOT NULL,
     author_name TEXT NOT NULL DEFAULT '',
     text TEXT NOT NULL DEFAULT '',
-    created_at_epoch INTEGER NOT NULL DEFAULT 0
+    created_at_epoch INTEGER NOT NULL DEFAULT 0,
+    -- PHASE F3: the comment author's auth uid (= profiles.id), so a later UI
+    -- phase can open the author's profile. DEFAULT '' so an on-device v<=3 DB
+    -- (added by 3.sqm) and fresh installs agree; '' when the author is unknown.
+    author_user_id TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX cachedComments_post_idx ON cachedComments(post_id);
@@ -150,15 +159,15 @@ CREATE TABLE pendingCommentInserts (
 -- --- cachedPosts queries ---------------------------------------------------
 
 selectAllCachedPosts:
-SELECT id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind
+SELECT id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind, author_user_id
 FROM cachedPosts
 ORDER BY created_at_epoch DESC;
 
 -- Upsert so a remote replace-all (or a local write) overwrites an existing row
 -- by primary key rather than failing on conflict.
 upsertCachedPost:
-INSERT OR REPLACE INTO cachedPosts(id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO cachedPosts(id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind, author_user_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteAllCachedPosts:
 DELETE FROM cachedPosts;
@@ -169,14 +178,14 @@ SELECT count(*) FROM cachedPosts;
 -- --- cachedComments queries ------------------------------------------------
 
 selectCachedComments:
-SELECT id, post_id, author_name, text, created_at_epoch
+SELECT id, post_id, author_name, text, created_at_epoch, author_user_id
 FROM cachedComments
 WHERE post_id = ?
 ORDER BY created_at_epoch ASC;
 
 upsertCachedComment:
-INSERT OR REPLACE INTO cachedComments(id, post_id, author_name, text, created_at_epoch)
-VALUES (?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO cachedComments(id, post_id, author_name, text, created_at_epoch, author_user_id)
+VALUES (?, ?, ?, ?, ?, ?);
 
 deleteCommentsForPost:
 DELETE FROM cachedComments WHERE post_id = ?;

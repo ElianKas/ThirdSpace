@@ -32,6 +32,12 @@ struct NativeFeedView: View {
     @State private var posts: [UIPost] = FeedData.posts()
     @State private var selectedPost: UIPost?
     @State private var showCreate = false
+    /// Drives the author-profile sheet (Phase F5). The feed is NOT inside a
+    /// `NavigationStack` (only the Profile tab is), so an author tap PRESENTS
+    /// `OtherProfileView` as a SHEET — wrapped in a `NavigationStack` inside the
+    /// sheet so the other-profile page can itself push its follower/following
+    /// lists. This mirrors how `SpotSheetView` is presented via `.sheet(item:)`.
+    @State private var authorProfile: AuthorProfileTarget?
     /// Guards `observeFeed` registration so the long-lived listener is wired
     /// exactly once per view lifetime (mirrors other once-registered observers).
     @State private var didRegisterObserver = false
@@ -55,6 +61,14 @@ struct NativeFeedView: View {
                                 FeedData.vote(postId: post.id, direction: direction) {
                                     posts = FeedData.posts()
                                 }
+                            },
+                            // Phase F5: tapping the author opens their profile as
+                            // a sheet. PostCardView suppresses the tap for bare
+                            // spots / unknown / self, so this only fires for a
+                            // real other author. Declared before `isBareSpot` to
+                            // match PostCardView's parameter order.
+                            onAuthorTap: {
+                                authorProfile = AuthorProfileTarget(userId: post.authorUserId)
                             },
                             // Phase 4: a bare spot (no post) hides vote/comment/
                             // caption; the tap still opens the spot detail sheet.
@@ -99,6 +113,17 @@ struct NativeFeedView: View {
             CreatePostView()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        // Author profile sheet (Phase F5). The feed is not in a NavigationStack,
+        // so we PRESENT the other-profile page as a sheet and wrap it in its own
+        // `NavigationStack` so its follower/following pushes work. Same
+        // `.sheet(item:)` + detents + drag-indicator pattern as the spot sheet.
+        .sheet(item: $authorProfile) { target in
+            NavigationStack {
+                OtherProfileView(userId: target.userId)
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -177,4 +202,12 @@ struct NativeFeedView: View {
         // as they scroll under it.
         .background(AppColor.background)
     }
+}
+
+/// Identifiable wrapper so a tapped author's user id can drive `.sheet(item:)`
+/// (SwiftUI needs an `Identifiable` item, not a bare `String?`). The user id is
+/// the identity. Used by `NativeFeedView` and `CommentsSheetView`.
+struct AuthorProfileTarget: Identifiable {
+    let userId: String
+    var id: String { userId }
 }

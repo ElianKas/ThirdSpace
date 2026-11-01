@@ -24,6 +24,13 @@ struct PostCardView: View {
     /// call sites / previews compile unchanged; `NativeFeedView` passes a
     /// closure that calls `FeedData.vote` and re-reads `posts`.
     var onVote: ((Int) -> Void)? = nil
+    /// Phase F5: optional author-tap callback, mirroring `onTap`/`onVote`.
+    /// `NativeFeedView` passes a closure that opens `OtherProfileView` for the
+    /// post's author. Defaults to `nil` so display-only call sites (the profile
+    /// tabs, previews) compile unchanged — and the author then renders as plain,
+    /// non-tappable text. The avatar + name become a `Button` only when this is
+    /// non-nil AND the author is tappable (see `authorTappable`).
+    var onAuthorTap: (() -> Void)? = nil
     /// Phase 4: when `true`, this card renders a BARE SPOT (a spot with no
     /// post). It suppresses the post-only chrome that makes no sense for a
     /// spot: the caption (there is none) and the vote control + comment button
@@ -95,7 +102,36 @@ struct PostCardView: View {
 
     // MARK: 3. Attribution
 
+    /// Whether the author (avatar + name) is tappable to open their profile.
+    /// Suppressed for a bare spot, an unknown author id, the current user's own
+    /// posts, or when no `onAuthorTap` was wired (display-only call sites).
+    private var authorTappable: Bool {
+        onAuthorTap != nil
+            && !isBareSpot
+            && !post.authorUserId.isEmpty
+            && post.authorUserId != FeedData.currentUserId()
+    }
+
     private var attributionRow: some View {
+        HStack(alignment: .top, spacing: AppDimens.spacingSM) {
+            if authorTappable {
+                // Only the avatar + name are the tap target (a plain Button), so
+                // the post caption below stays a normal, selectable text block.
+                Button(action: { onAuthorTap?() }) {
+                    authorIdentity
+                }
+                .buttonStyle(.plain)
+            } else {
+                authorIdentity
+            }
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// Avatar + "Name · date" + optional caption. Shared between the tappable
+    /// (Button) and non-tappable rendering so the look is identical.
+    private var authorIdentity: some View {
         HStack(alignment: .top, spacing: AppDimens.spacingSM) {
             AvatarView(name: post.authorName, size: 28)
 
@@ -116,8 +152,6 @@ struct PostCardView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            Spacer(minLength: 0)
         }
     }
 

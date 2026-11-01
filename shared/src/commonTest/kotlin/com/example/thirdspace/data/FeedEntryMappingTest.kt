@@ -24,6 +24,7 @@ class FeedEntryMappingTest {
             kind = "post",
             entryId = "11111111-1111-1111-1111-111111111111",
             id = "11111111-1111-1111-1111-111111111111",
+            authorId = "author-uid-1",
             authorName = "Alice",
             spotName = "Café Central",
             category = "Cafe",
@@ -45,6 +46,8 @@ class FeedEntryMappingTest {
         assertEquals(2, post.commentCount)
         assertEquals("UP", post.myVote)
         assertEquals(true, post.verified)
+        // PHASE F3: author uid maps through for a "post" entry.
+        assertEquals("author-uid-1", post.authorUserId)
     }
 
     @Test
@@ -53,6 +56,7 @@ class FeedEntryMappingTest {
             kind = "spot",
             entryId = "spot:22222222-2222-2222-2222-222222222222",
             id = "22222222-2222-2222-2222-222222222222",
+            authorId = "owner-uid-2",
             authorName = "Bob",
             spotName = "Secret Rooftop",
             category = "Bar",
@@ -75,6 +79,8 @@ class FeedEntryMappingTest {
         assertEquals(0, post.score)
         assertEquals(0, post.commentCount)
         assertEquals("NONE", post.myVote)
+        // PHASE F3: for a bare "spot" entry the author uid is the spot owner's.
+        assertEquals("owner-uid-2", post.authorUserId)
     }
 
     @Test
@@ -95,5 +101,7 @@ class FeedEntryMappingTest {
             myVote = "NONE",
         )
         assertEquals("post", p.kind)
+        // PHASE F3: authorUserId also defaults so existing construction compiles.
+        assertEquals("", p.authorUserId)
     }
 }
