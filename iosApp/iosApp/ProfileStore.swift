@@ -23,6 +23,19 @@ import Shared
 /// then triggers ONE explicit `loadProfile` refresh on init and listens for
 /// future background refreshes via `observeProfile`.
 ///
+/// RELOAD-ON-AUTH-TRANSITION CONTRACT: the init-time `loadProfile` runs BEFORE
+/// the async Supabase session restore completes, so at a cold relaunch it is a
+/// no-op (the shared `refreshFromRemote` short-circuits while unauthenticated)
+/// and `observeProfile` never fires (the cache does not change). The real
+/// profile therefore loads only once the session becomes available. `ContentView`
+/// drives that: it calls `reload()` when `session.isAuthenticated` flips true
+/// (login OR restore) and `clear()` when it flips false (sign-out). `reload()`
+/// re-triggers the explicit `loadProfile` refresh; the shared refresh coalesces
+/// via its in-flight guard, so a duplicate kick-off (e.g. `onAppear` + `onChange`)
+/// is harmless (at most one in-flight fetch per transition). `clear()` resets
+/// the snapshots to the pure-read neutral/empty state so a different user never
+/// sees the previous user's data after sign-out.
+///
 /// NOT-CONFIGURED / OFFLINE / PRE-LOGIN SAFETY: when there is no Supabase client
 /// or no session, the bridge returns a neutral `IosProfile` (empty strings + the
 /// session email if any) and the refresh is a no-op; nothing crashes. The REAL
@@ -74,6 +87,41 @@ final class ProfileStore {
         profile = FeedData.profile()
         ownPosts = FeedData.ownPosts()
         ownSpots = FeedData.ownSpots()
+    }
+
+    /// Trigger an explicit remote refresh of the profile + own posts/spots and
+    /// re-read the caches in the main-thread completion. Called by `ContentView`
+    /// when the session becomes authenticated (login OR a restored session at
+    /// relaunch) — the init-time `loadProfile` no-ops pre-restore, so this is
+    /// what actually populates the real profile once the uid is present.
+    ///
+    /// Safe to call more than once per transition (e.g. `onAppear` + `onChange`):
+    /// the shared refresh coalesces via its in-flight guard, so at most one
+    /// remote fetch is in flight.
+    func reload() {
+        FeedData.loadProfile { [weak self] in
+            self?.reloadFromCache()
+        }
+    }
+
+    /// Drop the previous user's data on sign-out. Called by `ContentView` when
+    /// `session.isAuthenticated` flips false.
+    ///
+    /// This now GENUINELY empties the shared `ProfileRepository` cache via
+    /// `FeedData.clearProfile()` — it no longer merely re-reads the cache.
+    /// Previously `clear()` only called `reloadFromCache()`, but the shared
+    /// repository never reset its in-memory `cached`/own-lists, so the prior
+    /// user's row lingered and a different user could briefly see it. The flat
+    /// `clearProfile` bridge hook resets `current()`/`ownPosts()`/`ownSpots()`
+    /// to the neutral/empty state and fires the shared `onChanged`, which the
+    /// `observeProfile` listener above hops onto the main thread to re-read.
+    ///
+    /// The explicit `reloadFromCache()` after is belt-and-suspenders
+    /// (idempotent): it makes the store reflect the now-neutral snapshot
+    /// synchronously even if the observer delivery timing differs.
+    func clear() {
+        FeedData.clearProfile()
+        reloadFromCache()
     }
 
     /// Save an EDIT of the current user's profile (name/city/bio) through the

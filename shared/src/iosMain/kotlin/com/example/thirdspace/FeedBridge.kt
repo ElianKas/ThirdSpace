@@ -34,6 +34,9 @@ import kotlinx.coroutines.withContext
  * - [text] uses an empty string instead of null (check `text.isEmpty` in Swift).
  * - [voteState] is "UP" / "DOWN" / "NONE".
  * - [colorHex] is a "#RRGGBB" string (alpha dropped from the ARGB source).
+ * - [kind] is a flat "post" / "spot" discriminator (Phase 4). A "spot" entry is
+ *   a bare spot with no post; Swift hides the post-only chrome (caption + vote +
+ *   comment) for it while keeping the spot header. "post" is the default shape.
  */
 data class IosPost(
     val id: String,
@@ -49,6 +52,7 @@ data class IosPost(
     val voteState: String,
     val commentCount: Int,
     val colorHex: String,
+    val kind: String,
 )
 
 /**
@@ -201,6 +205,10 @@ data class IosStrings(
     val visibilityPublic: String,
     val visibilityFriends: String,
     val createPost: String,
+    // Post prompt after creating a spot (MapBaseView alert)
+    val postPromptTitle: String,
+    val postPromptNotNow: String,
+    val postPromptPost: String,
     // Create spot sheet
     val addSpotTitle: String,
     val addSpotSubtitle: String,
@@ -291,6 +299,9 @@ data class IosStrings(
     /** Native share-sheet message for [spotName]. */
     fun shareMessage(spotName: String): String = table.shareMessage(spotName)
 
+    /** Post-prompt body after creating a spot, for [spotName]. */
+    fun postPromptBody(spotName: String): String = table.postPromptBody(spotName)
+
     /** Profile "joined since" line for the (non-translated) [monthYear]. */
     fun joinedSince(monthYear: String): String = table.joinedSince(monthYear)
 
@@ -335,6 +346,9 @@ data class IosStrings(
                 visibilityPublic = s.visibilityPublic,
                 visibilityFriends = s.visibilityFriends,
                 createPost = s.createPost,
+                postPromptTitle = s.postPromptTitle,
+                postPromptNotNow = s.postPromptNotNow,
+                postPromptPost = s.postPromptPost,
                 addSpotTitle = s.addSpotTitle,
                 addSpotSubtitle = s.addSpotSubtitle,
                 addSpotNameLabel = s.addSpotNameLabel,
@@ -723,6 +737,23 @@ object FeedBridge {
     }
 
     /**
+     * SIGN-OUT RESET: empty the shared profile cache so a DIFFERENT user signing
+     * in on the same app launch can never briefly see the previous user's
+     * profile/posts/spots. Called by Swift from `ContentView`'s sign-out branch
+     * (`session.isAuthenticated` -> false) via `ProfileStore.clear`.
+     *
+     * SYNCHRONOUS + FLAT: no completion is needed. [Profiles.clear] empties the
+     * in-memory cache and fires the repository's `onChanged`, which the existing
+     * [observeProfile] wiring (`Profiles.setChangeListener { onMain { ... } }`)
+     * already marshals onto the MAIN THREAD — so the resulting change
+     * notification reaches Swift on main just like a background refresh. No
+     * suspend / supabase / nullable type crosses the boundary.
+     */
+    fun clearProfile() {
+        Profiles.clear()
+    }
+
+    /**
      * The feed, sourced from the shared offline-first [Feed.posts] repository
      * (cache-first + background remote refresh), mapped to flat [IosPost].
      *
@@ -781,6 +812,9 @@ object FeedBridge {
         },
         commentCount = post.commentCount,
         colorHex = SpotCategory.colorHexForLabel(post.category),
+        // PHASE 4: "post" / "spot" discriminator. ownPosts() always maps real
+        // posts, so those correctly carry kind = "post".
+        kind = post.kind,
     )
 
     /**

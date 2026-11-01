@@ -29,6 +29,7 @@ class StringsTest {
         s.createTitle, s.createSubtitle, s.createSpotLabel, s.createSpotSearch,
         s.createTextLabel, s.createCaptionPlaceholder, s.createAddPhoto,
         s.createVisibility, s.visibilityPublic, s.visibilityFriends, s.createPost,
+        s.postPromptTitle, s.postPromptNotNow, s.postPromptPost,
         s.addSpotTitle, s.addSpotSubtitle, s.addSpotNameLabel,
         s.addSpotNamePlaceholder, s.addSpotCategoryLabel, s.addSpotLocationLabel,
         s.addSpotCreate,
@@ -103,6 +104,12 @@ class StringsTest {
     fun shareMessageContainsSpotName() {
         assertTrue(De.shareMessage("X").contains("X"))
         assertTrue(En.shareMessage("X").contains("X"))
+    }
+
+    @Test
+    fun postPromptBodyContainsSpotName() {
+        assertTrue(De.postPromptBody("X").contains("X"))
+        assertTrue(En.postPromptBody("X").contains("X"))
     }
 
     @Test

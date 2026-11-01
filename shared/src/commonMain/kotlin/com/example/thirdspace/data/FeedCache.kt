@@ -155,7 +155,7 @@ class LocalFeedCache(
     private val queries get() = db.thirdSpaceDbQueries
 
     override fun getCachedPosts(): List<FeedPost> =
-        queries.selectAllCachedPosts { id, authorName, spotName, category, neighborhood, verified, text, createdAtEpoch, score, commentCount, myVote ->
+        queries.selectAllCachedPosts { id, authorName, spotName, category, neighborhood, verified, text, createdAtEpoch, score, commentCount, myVote, kind ->
             FeedPost(
                 id = id,
                 authorName = authorName,
@@ -168,6 +168,7 @@ class LocalFeedCache(
                 score = score.toInt(),
                 commentCount = commentCount.toInt(),
                 myVote = myVote,
+                kind = kind,
             )
         }.executeAsList()
 
@@ -297,6 +298,7 @@ class LocalFeedCache(
             score = post.score.toLong(),
             comment_count = post.commentCount.toLong(),
             my_vote = post.myVote,
+            kind = post.kind,
         )
     }
 

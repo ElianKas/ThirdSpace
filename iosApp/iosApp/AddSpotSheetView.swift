@@ -244,11 +244,20 @@ struct AddSpotSheetView: View {
     private func create() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        // Swift-side id generation (documented): a UUID string keeps id creation
-        // in one place and avoids a shared-side generator. Default the category
-        // to the first shared category when none was picked (neighborhood stays
+        // Swift-side id generation: MUST be a bare UUID string (no "local-*"
+        // prefix). The spot write path sends this id straight through as
+        // `spots.id` (SpotInsertDto.id in SupabaseSpotRepository), and that
+        // column is Postgres type `uuid` — so a prefixed value is invalid uuid
+        // syntax and the INSERT fails with 22P02. This differs from the
+        // post/comment/vote `local-*` ids, where the DB generates the id via
+        // gen_random_uuid() and the optimistic local-id row is reconciled away
+        // by a replace-all; a spot's client id is persisted as the primary key,
+        // so it has to be a real uuid. The uppercase hyphenated form
+        // UUID().uuidString produces is fine — Postgres uuid input is
+        // case-insensitive, so no lowercasing is needed. Default the category to
+        // the first shared category when none was picked (neighborhood stays
         // empty — no reverse geocoding yet).
-        let id = "local-spot-\(UUID().uuidString)"
+        let id = UUID().uuidString
         let category = selectedCategory ?? categories.first ?? ""
         FeedData.addSpot(
             id: id,

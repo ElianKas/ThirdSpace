@@ -94,6 +94,30 @@ class ProfileRepository internal constructor(
     fun refresh() { scope.launch { refreshFromRemote() } }
 
     /**
+     * SIGN-OUT RESET: synchronously empty the in-memory cache so a DIFFERENT
+     * user signing in on the same app launch can never briefly see the previous
+     * user's data. Resets [cached] to `null` and both own-content lists to
+     * empty — the exact neutral/empty state the pure reads ([current] /
+     * [ownPosts] / [ownSpots]) report before the first successful [refresh] —
+     * then fires [onChanged] once so observers (the iOS `observeProfile`
+     * listener) re-read the now-neutral snapshot.
+     *
+     * This is a WRITE/reset, NOT a read, so it intentionally mutates state;
+     * [current]/[ownPosts]/[ownSpots] stay side-effect-free. It is synchronous
+     * and pure (NO remote fetch): the fields it touches are the same plain
+     * `var`s the refresh/update path mutates, so a direct reset is consistent
+     * with how they are otherwise written. Necessary because the neutral bridge
+     * fallback only fires while [current] is `null`, which never recurs after
+     * the first fetch — so without this reset the prior user's row lingers.
+     */
+    fun clear() {
+        cached = null
+        cachedOwnPosts = emptyList()
+        cachedOwnSpots = emptyList()
+        onChanged()
+    }
+
+    /**
      * Background refresh: fetch the current user's row + OWN posts + OWN spots
      * (Phase 4), store them, and notify ONCE. Serves the existing caches
      * unchanged when the remote is unavailable, unauthenticated, or returns no
@@ -270,6 +294,15 @@ object Profiles {
 
     /** Explicit remote refresh trigger for the bridge (loadProfile). */
     fun refresh() { repository.refresh() }
+
+    /**
+     * SIGN-OUT RESET for the bridge (clearProfile): forward to
+     * [ProfileRepository.clear] so the in-memory cache is emptied on sign-out
+     * and a different user never sees the prior user's profile/posts/spots.
+     * The repository's [onChanged] fires, which the bridge's `observeProfile`
+     * wiring hops onto the main thread.
+     */
+    fun clear() { repository.clear() }
 
     /**
      * Forward an EDIT/SAVE of the own profile (name/city/bio) to the

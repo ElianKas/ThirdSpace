@@ -71,8 +71,14 @@ struct UIPost: Identifiable {
     let voteState: String     // "UP" / "DOWN" / "NONE"
     let commentCount: Int
     let colorHex: String      // "#RRGGBB"
+    let kind: String          // "post" / "spot" (Phase 4)
 
     var hasText: Bool { !text.isEmpty }
+
+    /// Phase 4: a "spot" entry is a bare spot with no post. The feed hides the
+    /// post-only chrome (caption + vote control + comment button) for it while
+    /// keeping the spot header; a tap still opens the spot detail sheet.
+    var isBareSpot: Bool { kind == "spot" }
 
     init(bridged: IosPost) {
         self.id = bridged.id
@@ -88,6 +94,7 @@ struct UIPost: Identifiable {
         self.voteState = bridged.voteState
         self.commentCount = Int(bridged.commentCount)
         self.colorHex = bridged.colorHex
+        self.kind = bridged.kind
     }
 }
 
@@ -314,6 +321,15 @@ enum FeedData {
         FeedBridge.shared.updateProfile(name: name, city: city, bio: bio) { ok in
             completion(ok.boolValue)
         }
+    }
+
+    /// Empty the shared profile cache on sign-out via the flat
+    /// `FeedBridge.clearProfile` hook, so a DIFFERENT user signing in on the
+    /// same app launch never briefly sees the prior user's profile/posts/spots.
+    /// Synchronous + flat; the resulting shared `onChanged` is delivered to any
+    /// `observeProfile` listener on the MAIN thread by the bridge.
+    static func clearProfile() {
+        FeedBridge.shared.clearProfile()
     }
 
     /// Pull the bridged report reasons from the shared framework. Single source

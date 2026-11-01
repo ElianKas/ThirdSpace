@@ -73,6 +73,11 @@ struct ProfileView: View {
             }
         }
         .background(AppColor.background)
+        // Native system pull-to-refresh, mirroring NativeFeedView. `.refreshable`
+        // attaches to the root ScrollView; the store's @Observable drives the
+        // re-render once the shared refresh lands, so no local @State copy is
+        // needed here.
+        .refreshable { await refreshProfile() }
         // As a tab the banner is a header: let the gradient extend under the
         // status bar at the top, consistent with the other tab screens' chrome.
         .ignoresSafeArea(edges: .top)
@@ -92,6 +97,24 @@ struct ProfileView: View {
         // reaches the top on the main profile page; the pushed edit page shows
         // its own nav bar + back button.
         .toolbar(.hidden, for: .navigationBar)
+    }
+
+    // MARK: Refresh
+
+    /// Native pull-to-refresh: trigger a real background remote refresh of the
+    /// profile + counts + own posts/spots via the flat bridge. Mirrors
+    /// `NativeFeedView.refresh()`: bridges the escaping `FeedData.loadProfile`
+    /// completion into the async `refreshable` with a continuation so the system
+    /// spinner stays until the completion fires on the main thread. No local
+    /// state is touched — `ProfileStore` re-reads itself in the completion /
+    /// `observeProfile`, and its `@Observable` drives the re-render. Offline /
+    /// unauthenticated no-ops in the shared layer and completes without crashing.
+    private func refreshProfile() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            FeedData.loadProfile {
+                continuation.resume()
+            }
+        }
     }
 
     // MARK: Banner

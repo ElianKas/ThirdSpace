@@ -110,7 +110,11 @@ CREATE TABLE cachedPosts (
     created_at_epoch INTEGER NOT NULL DEFAULT 0,
     score INTEGER NOT NULL DEFAULT 0,
     comment_count INTEGER NOT NULL DEFAULT 0,
-    my_vote TEXT NOT NULL DEFAULT 'NONE'
+    my_vote TEXT NOT NULL DEFAULT 'NONE',
+    -- PHASE 4: feed entry kind ("post" / "spot"). Posts are the DEFAULT so an
+    -- on-device v<=2 DB (added by 2.sqm) and fresh installs agree. A "spot"
+    -- entry is a bare spot with no post (empty text, 0 score/comments).
+    kind TEXT NOT NULL DEFAULT 'post'
 );
 
 -- ---------------------------------------------------------------------------
@@ -146,15 +150,15 @@ CREATE TABLE pendingCommentInserts (
 -- --- cachedPosts queries ---------------------------------------------------
 
 selectAllCachedPosts:
-SELECT id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote
+SELECT id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind
 FROM cachedPosts
 ORDER BY created_at_epoch DESC;
 
 -- Upsert so a remote replace-all (or a local write) overwrites an existing row
 -- by primary key rather than failing on conflict.
 upsertCachedPost:
-INSERT OR REPLACE INTO cachedPosts(id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO cachedPosts(id, author_name, spot_name, category, neighborhood, verified, text, created_at_epoch, score, comment_count, my_vote, kind)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 deleteAllCachedPosts:
 DELETE FROM cachedPosts;

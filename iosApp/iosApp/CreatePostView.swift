@@ -35,6 +35,28 @@ struct CreatePostView: View {
     private let spots: [SpotOption] = CreatePostView.realSpots()
 
     @State private var selectedSpot: SpotOption?
+
+    /// Two presentations:
+    /// - Feed header compose button: `CreatePostView()` — no preselect, starts
+    ///   with the spot picker shown.
+    /// - Map "Posten" prompt (Phase 3): `CreatePostView(preselectedSpotId:)` —
+    ///   seeds `selectedSpot` with the just-created spot so the sheet opens with
+    ///   that spot already chosen.
+    ///
+    /// Mirrors `AddSpotSheetView`'s `_state = State(initialValue:)` pattern:
+    /// because `selectedSpot` is a `@State` with no inline initializer, this
+    /// custom init seeds its backing store. `onClose` is folded in with a
+    /// default so the no-arg feed-header call site stays identical.
+    init(onClose: (() -> Void)? = nil, preselectedSpotId: String? = nil) {
+        self.onClose = onClose
+        if let preselectedSpotId {
+            let preselected = CreatePostView.realSpots().first { $0.id == preselectedSpotId }
+            _selectedSpot = State(initialValue: preselected)
+        } else {
+            _selectedSpot = State(initialValue: nil)
+        }
+    }
+
     @State private var searchText: String = ""
     @State private var caption: String = ""
     @State private var visibility: Visibility = .publicEveryone

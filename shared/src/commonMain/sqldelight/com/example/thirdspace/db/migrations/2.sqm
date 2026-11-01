@@ -1,0 +1,14 @@
+-- Migrate v2 (feed cache without an entry kind) -> v3: add the `kind` column to
+-- cachedPosts so the Phase 4 feed can store bare-spot entries ("spot") beside
+-- posts ("post"). The DEFAULT 'post' backfills every existing cached row (they
+-- were all posts), matching the .sq fresh-install default — so an existing
+-- on-device DB is migrated IN PLACE rather than crashing with
+-- `no such column: kind` on the first `SELECT ... kind FROM cachedPosts`.
+--
+-- The presence of this file auto-bumps the generated ThirdSpaceDb schema
+-- version to 3 (1.sq = v1, 1.sqm -> v2, 2.sqm -> v3); `deriveSchemaFromMigrations`
+-- stays OFF, so the .sq continues to describe the current schema for fresh
+-- installs while this migration upgrades older databases. The driver runs this
+-- migration inside its own transaction.
+
+ALTER TABLE cachedPosts ADD COLUMN kind TEXT NOT NULL DEFAULT 'post';

@@ -37,7 +37,7 @@ class LocalFeedCacheDbTest {
         driver.close()
     }
 
-    private fun post(id: String, epoch: Long, verified: Boolean = true) = FeedPost(
+    private fun post(id: String, epoch: Long, verified: Boolean = true, kind: String = "post") = FeedPost(
         id = id,
         authorName = "Author $id",
         spotName = "Spot $id",
@@ -49,6 +49,7 @@ class LocalFeedCacheDbTest {
         score = 42,
         commentCount = 3,
         myVote = "UP",
+        kind = kind,
     )
 
     private fun comment(id: String, postId: String, epoch: Long) = FeedComment(
@@ -76,6 +77,23 @@ class LocalFeedCacheDbTest {
         assertEquals("UP", a.myVote)
         assertTrue(a.verified)
         assertEquals(100L, a.createdAtEpoch)
+        // PHASE 4: the default-shaped post round-trips as kind "post".
+        assertEquals("post", a.kind)
+    }
+
+    @Test
+    fun kindColumnRoundTripsForBareSpotEntry() {
+        // PHASE 4: a bare-spot feed entry (kind="spot") must persist + read back
+        // with its kind via the new `kind` column, alongside regular posts.
+        cache.replaceAllPosts(
+            listOf(
+                post("p1", 200L, kind = "post"),
+                post("spot:s1", 100L, kind = "spot"),
+            ),
+        )
+        val read = cache.getCachedPosts()
+        assertEquals("post", read.first { it.id == "p1" }.kind)
+        assertEquals("spot", read.first { it.id == "spot:s1" }.kind)
     }
 
     @Test

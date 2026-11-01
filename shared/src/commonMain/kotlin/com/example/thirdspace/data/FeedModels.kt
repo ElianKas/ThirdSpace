@@ -21,6 +21,15 @@ package com.example.thirdspace.data
  *
  * [myVote] is a flat "UP"/"DOWN"/"NONE" string (the view returns "NONE" for now;
  * voting is deferred). All fields are flat primitives — no nullables.
+ *
+ * PHASE 4: the feed now surfaces public SPOTS as well as POSTS (via the remote
+ * `public.feed_entries` view). [kind] is a flat "post" / "spot" discriminator —
+ * "post" is the DEFAULT so existing construction (the offline seed, tests, the
+ * `post_feed` path) compiles unchanged. For a "spot" entry (a spot with no
+ * post), [id] holds the view's `entry_id`, which carries a `spot:` prefix, so
+ * the client's list identity (`ForEach(id:)`) stays unique against post uuids;
+ * such an entry has an empty [text], 0 [commentCount], 0 [score], myVote
+ * "NONE", and its [authorName] is the spot owner's display name.
  */
 data class FeedPost(
     val id: String,
@@ -34,6 +43,7 @@ data class FeedPost(
     val score: Int,
     val commentCount: Int,
     val myVote: String,
+    val kind: String = "post",
 )
 
 /**

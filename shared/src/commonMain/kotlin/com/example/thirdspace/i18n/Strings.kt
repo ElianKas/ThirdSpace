@@ -70,6 +70,13 @@ interface Strings {
     val visibilityFriends: String
     val createPost: String
 
+    // Post prompt after creating a spot on the map (MapBaseView alert) —
+    // "also share this spot as a post?". The spot name is dynamic and is
+    // interpolated via the [postPromptBody] function below.
+    val postPromptTitle: String
+    val postPromptNotNow: String
+    val postPromptPost: String
+
     // Create spot sheet (AddSpotSheetView) — tap-to-create a new spot at a
     // map coordinate. Category labels are DYNAMIC (from SpotCategory) and are
     // NOT part of this table; only the static chrome below is localized.
@@ -177,6 +184,9 @@ interface Strings {
     /** Native share-sheet message, with the spot name interpolated. */
     fun shareMessage(spotName: String): String
 
+    /** Post-prompt body after creating a spot, with the spot name interpolated. */
+    fun postPromptBody(spotName: String): String
+
     /**
      * Profile "joined since" line, with the (non-translated) [monthYear]
      * interpolated: DE "seit $monthYear", EN "since $monthYear".
@@ -246,6 +256,11 @@ object De : Strings {
     override val visibilityPublic = "Öffentlich"
     override val visibilityFriends = "Freunde"
     override val createPost = "Posten"
+
+    // Post prompt after creating a spot
+    override val postPromptTitle = "Spot ist live 🎉"
+    override val postPromptNotNow = "Nicht jetzt"
+    override val postPromptPost = "Posten"
 
     // Create spot sheet
     override val addSpotTitle = "Neuen Spot anlegen"
@@ -346,6 +361,9 @@ object De : Strings {
     override fun shareMessage(spotName: String): String =
         "Schau dir $spotName auf ThirdSpace an."
 
+    override fun postPromptBody(spotName: String): String =
+        "Möchtest du $spotName auch als Post teilen?"
+
     override fun joinedSince(monthYear: String): String =
         "seit $monthYear"
 
@@ -409,6 +427,11 @@ object En : Strings {
     override val visibilityPublic = "Public"
     override val visibilityFriends = "Friends"
     override val createPost = "Post"
+
+    // Post prompt after creating a spot
+    override val postPromptTitle = "Spot is live 🎉"
+    override val postPromptNotNow = "Not now"
+    override val postPromptPost = "Post"
 
     // Create spot sheet
     override val addSpotTitle = "Create a new spot"
@@ -508,6 +531,9 @@ object En : Strings {
 
     override fun shareMessage(spotName: String): String =
         "Check out $spotName on ThirdSpace."
+
+    override fun postPromptBody(spotName: String): String =
+        "Do you also want to share $spotName as a post?"
 
     override fun joinedSince(monthYear: String): String =
         "since $monthYear"

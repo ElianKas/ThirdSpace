@@ -50,10 +50,15 @@ struct NativeFeedView: View {
                                 // score/my_vote and fires onChanged. Re-read
                                 // posts() in the completion so the card updates
                                 // promptly (observeFeed also re-reads live).
+                                // Phase 4: unreachable for a bare spot (the vote
+                                // control is hidden), so a bare spot can't vote.
                                 FeedData.vote(postId: post.id, direction: direction) {
                                     posts = FeedData.posts()
                                 }
-                            }
+                            },
+                            // Phase 4: a bare spot (no post) hides vote/comment/
+                            // caption; the tap still opens the spot detail sheet.
+                            isBareSpot: post.isBareSpot
                         )
 
                         // 1px hairline between cards (not after the last one),

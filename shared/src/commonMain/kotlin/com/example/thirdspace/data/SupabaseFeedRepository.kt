@@ -32,6 +32,34 @@ internal data class PostFeedDto(
 )
 
 /**
+ * Wire DTO for a row of the remote `public.feed_entries` view (Phase 4). This
+ * is [PostFeedDto] plus the two leading discriminator columns the UNION view
+ * adds: `kind` ("post" / "spot") and `entry_id` (the stable list identity —
+ * the post uuid for a post, or a `spot:`-prefixed id for a bare spot). The
+ * remaining columns are identical to `post_feed`, so the derivation reuses the
+ * same field map (see [PostFeedMapping.toFeedPost]).
+ *
+ * INTERNAL to the shared module: this @Serializable type never crosses the flat
+ * FeedBridge boundary.
+ */
+@Serializable
+internal data class FeedEntryDto(
+    val kind: String = "post",
+    @SerialName("entry_id") val entryId: String = "",
+    val id: String = "",
+    @SerialName("author_name") val authorName: String = "",
+    @SerialName("spot_name") val spotName: String = "",
+    val category: String = "",
+    val neighborhood: String = "",
+    val verified: Boolean = false,
+    val text: String = "",
+    @SerialName("created_at") val createdAt: String = "",
+    val score: Int = 0,
+    @SerialName("comment_count") val commentCount: Int = 0,
+    @SerialName("my_vote") val myVote: String = "NONE",
+)
+
+/**
  * Wire DTO for a row of `public.post_comments`, with the comment author's
  * display name resolved via a PostgREST EMBEDDED select of the related
  * `profiles(name)` (see [SupabaseFeedRepository.fetchComments]). The embedded
@@ -99,7 +127,7 @@ internal data class PostVoteDto(
  * datetime-free; the epoch stays INSIDE the shared module.
  */
 internal object PostFeedMapping {
-    /** Map one decoded `post_feed` row to the flat [FeedPost]. */
+    /** Map one decoded `post_feed` row to the flat [FeedPost] (kind = "post"). */
     fun toFeedPost(dto: PostFeedDto): FeedPost = FeedPost(
         id = dto.id,
         authorName = dto.authorName,
@@ -112,6 +140,30 @@ internal object PostFeedMapping {
         score = dto.score,
         commentCount = dto.commentCount,
         myVote = dto.myVote,
+    )
+
+    /**
+     * Map one decoded `feed_entries` row (Phase 4) to the flat [FeedPost].
+     * Identical to the [PostFeedDto] derivation except [FeedPost.id] is the
+     * view's stable [FeedEntryDto.entryId] (so a bare-spot entry carries its
+     * `spot:` prefix, keeping list identity unique) and [FeedPost.kind] carries
+     * the "post" / "spot" discriminator. Everything downstream still flows as a
+     * plain [FeedPost] (the cache + bridge are kind-agnostic — kind just rides
+     * along).
+     */
+    fun toFeedPost(dto: FeedEntryDto): FeedPost = FeedPost(
+        id = dto.entryId,
+        authorName = dto.authorName,
+        spotName = dto.spotName,
+        category = dto.category,
+        neighborhood = dto.neighborhood,
+        verified = dto.verified,
+        text = dto.text,
+        createdAtEpoch = RelativeTime.parseIsoToEpochMillis(dto.createdAt),
+        score = dto.score,
+        commentCount = dto.commentCount,
+        myVote = dto.myVote,
+        kind = dto.kind,
     )
 }
 
@@ -180,15 +232,19 @@ internal class SupabaseFeedRepository : FeedRemoteSource {
     private val client get() = SupabaseClientProvider.client
 
     /**
-     * Fetch the whole feed from `public.post_feed`, newest-first. Returns an
-     * empty list (no throw) when unconfigured. `created_at` is parsed to epoch
-     * millis here so the rest of the app stays datetime-free.
+     * Fetch the whole feed from `public.feed_entries` (Phase 4: posts AND bare
+     * spots), newest-first. Returns an empty list (no throw) when unconfigured.
+     * `created_at` is parsed to epoch millis here so the rest of the app stays
+     * datetime-free. Each row decodes as a [FeedEntryDto] (post_feed columns +
+     * the `kind`/`entry_id` discriminators) and maps to a flat [FeedPost] whose
+     * [FeedPost.id] is the stable `entry_id` and [FeedPost.kind] is "post" /
+     * "spot".
      */
     override suspend fun fetchFeed(): List<FeedPost> {
         val c = client ?: return emptyList()
-        val rows = c.from("post_feed").select {
+        val rows = c.from("feed_entries").select {
             order("created_at", Order.DESCENDING)
-        }.decodeList<PostFeedDto>()
+        }.decodeList<FeedEntryDto>()
         return rows.map { PostFeedMapping.toFeedPost(it) }
     }
 

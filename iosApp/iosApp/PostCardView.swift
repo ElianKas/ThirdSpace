@@ -24,6 +24,14 @@ struct PostCardView: View {
     /// call sites / previews compile unchanged; `NativeFeedView` passes a
     /// closure that calls `FeedData.vote` and re-reads `posts`.
     var onVote: ((Int) -> Void)? = nil
+    /// Phase 4: when `true`, this card renders a BARE SPOT (a spot with no
+    /// post). It suppresses the post-only chrome that makes no sense for a
+    /// spot: the caption (there is none) and the vote control + comment button
+    /// in the action row (nothing to vote/comment on). The spot header, colored
+    /// placeholder, attribution (owner + created date), and the map-pin /
+    /// neighborhood are KEPT. Defaults to `false` so existing call sites and
+    /// previews (regular posts) are unchanged.
+    var isBareSpot: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -100,7 +108,8 @@ struct PostCardView: View {
                         .font(.system(size: AppTypography.footnote))
                         .foregroundColor(AppColor.textFaint)
                 }
-                if post.hasText {
+                // A bare spot has no caption; only posts render text.
+                if !isBareSpot && post.hasText {
                     Text("„\(post.text)\u{201C}")
                         .font(.system(size: AppTypography.body))
                         .foregroundColor(AppColor.bodyText)
@@ -116,23 +125,28 @@ struct PostCardView: View {
 
     private var actionRow: some View {
         HStack(spacing: 0) {
-            VoteControlView(
-                score: post.score,
-                voteState: post.voteState,
-                onUp: { onVote?(1) },
-                onDown: { onVote?(-1) }
-            )
+            // A bare spot has no post to vote on or comment on, so the vote
+            // control + comment button are suppressed. The right-aligned
+            // map-pin / neighborhood is kept for both kinds.
+            if !isBareSpot {
+                VoteControlView(
+                    score: post.score,
+                    voteState: post.voteState,
+                    onUp: { onVote?(1) },
+                    onDown: { onVote?(-1) }
+                )
 
-            Spacer().frame(width: 20)
+                Spacer().frame(width: 20)
 
-            HStack(spacing: AppDimens.spacingXS) {
-                Image(systemName: "bubble.left")
-                    .font(.system(size: AppTypography.title))
-                    .foregroundColor(AppColor.mutedForeground)
-                if post.commentCount > 0 {
-                    Text("\(post.commentCount)")
-                        .font(.system(size: AppTypography.footnote, weight: .semibold))
+                HStack(spacing: AppDimens.spacingXS) {
+                    Image(systemName: "bubble.left")
+                        .font(.system(size: AppTypography.title))
                         .foregroundColor(AppColor.mutedForeground)
+                    if post.commentCount > 0 {
+                        Text("\(post.commentCount)")
+                            .font(.system(size: AppTypography.footnote, weight: .semibold))
+                            .foregroundColor(AppColor.mutedForeground)
+                    }
                 }
             }
 

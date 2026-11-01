@@ -86,9 +86,10 @@ class FeedDbMigrationTest {
     }
 
     @Test
-    fun schemaVersionIsTwo() {
-        // The presence of 1.sqm auto-bumps the generated Schema version to 2.
-        assertEquals(2L, ThirdSpaceDb.Schema.version)
+    fun schemaVersionIsThree() {
+        // 1.sq = v1, 1.sqm -> v2, 2.sqm (Phase 4 `kind` column) -> v3. The
+        // presence of the migration files auto-bumps the generated version.
+        assertEquals(3L, ThirdSpaceDb.Schema.version)
     }
 
     @Test
@@ -101,11 +102,12 @@ class FeedDbMigrationTest {
         assertTrue(selectCountSucceeds("cachedSpots"), "spots-only v1 DB should have cachedSpots")
         assertTrue(!selectCountSucceeds("cachedPosts"), "v1 DB must NOT yet have cachedPosts")
 
-        // Run the generated migration 1 -> 2 (ignore the QueryResult).
-        ThirdSpaceDb.Schema.migrate(driver, 1, 2)
+        // Run the generated migration 1 -> 3 (1.sqm adds the feed tables; 2.sqm
+        // adds the Phase 4 `kind` column). Ignore the QueryResult.
+        ThirdSpaceDb.Schema.migrate(driver, 1, 3)
 
         // After migration the feed table exists: SELECT count(*) succeeds.
-        assertTrue(selectCountSucceeds("cachedPosts"), "cachedPosts must exist after migrate(1,2)")
+        assertTrue(selectCountSucceeds("cachedPosts"), "cachedPosts must exist after migrate(1,3)")
 
         // And a real round-trip through LocalFeedCache works against the migrated DB.
         val cache = LocalFeedCache(ThirdSpaceDb(driver))
@@ -134,12 +136,96 @@ class FeedDbMigrationTest {
         assertTrue(selectCountSucceeds("cachedSpots"), "cachedSpots must survive the migration")
     }
 
+    /**
+     * Build a pre-existing v2 `cachedPosts` BY HAND (the Phase B feed cache
+     * WITHOUT the Phase 4 `kind` column) + `PRAGMA user_version = 2`, so we can
+     * prove `migrate(2, 3)` adds the `kind` column in place. Statements mirror
+     * the v2 shape (the current .sq `cachedPosts` minus `kind`).
+     */
+    private fun createV2CachedPostsNoKind() {
+        driver.execute(
+            null,
+            """
+            |CREATE TABLE cachedPosts (
+            |    id TEXT NOT NULL PRIMARY KEY,
+            |    author_name TEXT NOT NULL DEFAULT '',
+            |    spot_name TEXT NOT NULL DEFAULT '',
+            |    category TEXT NOT NULL DEFAULT '',
+            |    neighborhood TEXT NOT NULL DEFAULT '',
+            |    verified INTEGER NOT NULL DEFAULT 0,
+            |    text TEXT NOT NULL DEFAULT '',
+            |    created_at_epoch INTEGER NOT NULL DEFAULT 0,
+            |    score INTEGER NOT NULL DEFAULT 0,
+            |    comment_count INTEGER NOT NULL DEFAULT 0,
+            |    my_vote TEXT NOT NULL DEFAULT 'NONE'
+            |)
+            """.trimMargin(),
+            0,
+        )
+        // An existing row from before the migration (all such rows were posts).
+        driver.execute(
+            null,
+            "INSERT INTO cachedPosts(id, author_name, spot_name, created_at_epoch) VALUES ('old', 'A', 'S', 50)",
+            0,
+        )
+        driver.execute(null, "PRAGMA user_version = 2", 0)
+    }
+
+    @Test
+    fun migratingV2DbAddsKindColumnAndBackfillsPost() {
+        // Reconstruct a v2 feed cache that predates the Phase 4 `kind` column.
+        createV2CachedPostsNoKind()
+        assertTrue(!selectColumnExists("cachedPosts", "kind"), "v2 cachedPosts must NOT have `kind`")
+
+        // Run the generated migration 2 -> 3 (2.sqm: ALTER TABLE ADD kind).
+        ThirdSpaceDb.Schema.migrate(driver, 2, 3)
+
+        // The `kind` column now exists and the pre-existing row backfilled to 'post'.
+        assertTrue(selectColumnExists("cachedPosts", "kind"), "cachedPosts must have `kind` after migrate(2,3)")
+        val cache = LocalFeedCache(ThirdSpaceDb(driver))
+        val old = cache.getCachedPosts().first { it.id == "old" }
+        assertEquals("post", old.kind)
+
+        // A new bare-spot entry round-trips with kind "spot" through the migrated DB.
+        cache.upsertPost(
+            FeedPost(
+                id = "spot:s1",
+                authorName = "Owner",
+                spotName = "Rooftop",
+                category = "Bar",
+                neighborhood = "Mitte",
+                verified = false,
+                text = "",
+                createdAtEpoch = 100L,
+                score = 0,
+                commentCount = 0,
+                myVote = "NONE",
+                kind = "spot",
+            ),
+        )
+        assertEquals("spot", cache.getCachedPosts().first { it.id == "spot:s1" }.kind)
+    }
+
     /** Returns true if `SELECT count(*) FROM <table>` executes without throwing. */
     private fun selectCountSucceeds(table: String): Boolean =
         try {
             driver.executeQuery(
                 null,
                 "SELECT count(*) FROM $table",
+                { cursor -> cursor.next() },
+                0,
+            )
+            true
+        } catch (_: Throwable) {
+            false
+        }
+
+    /** Returns true if `SELECT <column> FROM <table>` executes without throwing. */
+    private fun selectColumnExists(table: String, column: String): Boolean =
+        try {
+            driver.executeQuery(
+                null,
+                "SELECT $column FROM $table LIMIT 1",
                 { cursor -> cursor.next() },
                 0,
             )

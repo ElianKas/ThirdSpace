@@ -40,6 +40,19 @@ struct MapBaseView: View {
     /// the FAB's default coordinate. Nil until the map has appeared.
     @State private var mapCenter: (() -> CLLocationCoordinate2D?)?
 
+    /// Phase 3 post-prompt. After a spot is created, a native `.alert` asks
+    /// "also share this spot as a post?". Non-nil `postPromptSpotId` drives the
+    /// alert's presentation; `postPromptSpotName` carries the name for the
+    /// interpolated body (looked up from the refreshed `spots` by id, so
+    /// `AddSpotSheetView`'s `(String) -> Void` callback signature is unchanged).
+    @State private var postPromptSpotId: String?
+    @State private var postPromptSpotName: String = ""
+
+    /// Drives the preselected create-post sheet opened from the prompt's
+    /// "Posten" button. `createPostSpotId` is the spot to preselect.
+    @State private var showCreatePost = false
+    @State private var createPostSpotId: String?
+
     var body: some View {
         ZStack {
             // Real Mapbox base map centered on Berlin with category-colored
@@ -113,15 +126,53 @@ struct MapBaseView: View {
         .sheet(item: $pendingSpot) { pending in
             AddSpotSheetView(
                 pending: pending,
-                onCreated: { _ in
+                onCreated: { id in
                     // Re-read the shared repository so the new pin renders.
                     spots = FeedData.spots()
                     pendingSpot = nil
+                    // Phase 3: prompt to also post about the new spot. Resolve
+                    // the name from the refreshed spots by id (keeps the
+                    // AddSpotSheetView callback signature as (String) -> Void).
+                    let name = spots.first { $0.id == id }?.name ?? ""
+                    postPromptSpotName = name
+                    postPromptSpotId = id
                 },
                 onClose: { pendingSpot = nil }
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+        }
+        // Phase 3 post-prompt: after creating a spot, ask whether to also share
+        // it as a post. "Nicht jetzt" just dismisses (no post); "Posten" opens
+        // the create-post sheet PRESELECTED to the new spot. The
+        // `presenting:`/actions/message alert form is valid for iOS 15+.
+        .alert(
+            loc.strings.postPromptTitle,
+            isPresented: Binding(
+                get: { postPromptSpotId != nil },
+                set: { if !$0 { postPromptSpotId = nil } }
+            ),
+            presenting: postPromptSpotId
+        ) { id in
+            Button(loc.strings.postPromptNotNow, role: .cancel) {
+                postPromptSpotId = nil
+            }
+            Button(loc.strings.postPromptPost) {
+                createPostSpotId = id
+                postPromptSpotId = nil
+                showCreatePost = true
+            }
+        } message: { _ in
+            Text(loc.strings.postPromptBody(spotName: postPromptSpotName))
+        }
+        // Preselected create-post sheet opened from the prompt's "Posten"
+        // button. Follows the project sheet pattern (large detent + drag
+        // indicator). On dismiss, re-read spots (trivial) so any state stays
+        // fresh; the feed refresh after posting is handled inside CreatePostView.
+        .sheet(isPresented: $showCreatePost, onDismiss: { spots = FeedData.spots() }) {
+            CreatePostView(preselectedSpotId: createPostSpotId)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 

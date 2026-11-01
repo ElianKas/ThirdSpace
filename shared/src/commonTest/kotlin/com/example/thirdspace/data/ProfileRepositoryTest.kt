@@ -345,6 +345,43 @@ class ProfileRepositoryTest {
     }
 
     @Test
+    fun refreshAfterAuthBecomesAvailablePopulatesProfile() {
+        // The relaunch-restore bug contract: at launch the session is not yet
+        // restored, so the first refresh runs UNAUTHENTICATED and must no-op
+        // (no fetch, cached stays null -> the bridge shows the neutral profile).
+        // Once the async session restore completes, the Swift onChange hook
+        // re-triggers refresh with a now-present uid; THAT refresh must fetch
+        // and populate the profile. This proves the empty-then-present-uid
+        // retry the Swift `onChange(of: session.isAuthenticated)` relies on.
+        var authed = false
+        val remote = FakeRemote(
+            available = true,
+            result = profileRow(name = "Ada Lovelace"),
+            ownSpots = (1..3).map { ownSpot("s-$it") },
+            ownPosts = (1..2).map { ownPost("p-$it") },
+        )
+        val repo = ProfileRepository(
+            scope = scope, remote = remote, isAuthenticated = { authed },
+        )
+
+        // 1. Pre-restore: unauthenticated -> no-op, nothing cached, no fetch.
+        repo.refresh()
+        assertNull(repo.current())
+        assertEquals(0, remote.fetchCount)
+
+        // 2. Session restore completes -> uid now present -> retry refresh.
+        authed = true
+        repo.refresh()
+
+        // Now the profile is populated (name + derived counts) and the fetch ran.
+        val current = repo.current()
+        assertEquals("Ada Lovelace", current?.name)
+        assertEquals(3, current?.spotCount)
+        assertEquals(2, current?.postCount)
+        assertEquals(1, remote.fetchCount)
+    }
+
+    @Test
     fun refreshThatReturnsNullKeepsPriorCachedValue() {
         val good = profileRow(name = "Ada Lovelace")
         val remote = FakeRemote(available = true, result = good)
@@ -653,5 +690,42 @@ class ProfileRepositoryTest {
         remote.ownSpotsThrows = true
         repo.refresh()
         assertEquals(listOf("s-1", "s-2"), repo.ownSpots().map { it.id })
+    }
+
+    // --- Sign-out: clear() empties the cache (cross-user data-leak fix) ---
+
+    @Test
+    fun clearEmptiesCacheSoADifferentUserDoesNotSeePriorData() {
+        // The sign-out true->false contract: after a populated refresh, clear()
+        // must reset current()/ownPosts()/ownSpots() to the neutral/empty state
+        // (so a different user signing in on the same app launch never sees the
+        // prior user's data) and fire onChanged so observers re-read.
+        val remote = FakeRemote(
+            available = true, result = profileRow(name = "Ada Lovelace"),
+            ownPosts = listOf(ownPost("p-1"), ownPost("p-2")),
+            ownSpots = listOf(ownSpot("s-1"), ownSpot("s-2"), ownSpot("s-3")),
+        )
+        var notified = 0
+        val repo = ProfileRepository(
+            scope = scope, remote = remote,
+            isAuthenticated = { true }, onChanged = { notified++ },
+        )
+
+        // Populate: profile + own posts/spots all non-empty.
+        repo.refresh()
+        assertEquals("Ada Lovelace", repo.current()?.name)
+        assertEquals(listOf("p-1", "p-2"), repo.ownPosts().map { it.id })
+        assertEquals(listOf("s-1", "s-2", "s-3"), repo.ownSpots().map { it.id })
+        val notifiedAfterRefresh = notified
+
+        // Sign out: clear() empties the shared cache synchronously + notifies.
+        repo.clear()
+
+        // Neutral/empty state — exactly what the bridge shows pre-first-fetch.
+        assertNull(repo.current())
+        assertTrue(repo.ownPosts().isEmpty())
+        assertTrue(repo.ownSpots().isEmpty())
+        // onChanged fired for the clear so observers re-read the neutral state.
+        assertTrue(notified > notifiedAfterRefresh)
     }
 }

@@ -181,6 +181,34 @@ class FeedRepositoryTest {
     }
 
     @Test
+    fun getPostsPreservesKindForMixedPostAndSpotEntries() {
+        // PHASE 4: fetchFeed can now return a MIX of kind="post" and
+        // kind="spot" (a bare spot with no post) FeedPosts. The repo is
+        // kind-agnostic — it just caches/serves FeedPost — so the `kind` must
+        // round-trip through the cache unchanged, newest-first.
+        val cache = FakeFeedCache()
+        val remote = FakeFeedRemote(
+            available = true,
+            feedResult = listOf(
+                post("p1", 300L).copy(kind = "post"),
+                post("spot:s1", 200L).copy(kind = "spot", text = "", score = 0, commentCount = 0, myVote = "NONE"),
+            ),
+        )
+        val repo = FeedRepository(
+            cache = cache, scope = scope, remote = remote,
+            isAuthenticated = { true }, clock = { 100L }, seedIfEmpty = emptyList(),
+        )
+        repo.refresh()
+        val served = repo.getPosts()
+        assertEquals(listOf("p1", "spot:s1"), served.map { it.id })
+        assertEquals("post", served.first { it.id == "p1" }.kind)
+        val bare = served.first { it.id == "spot:s1" }
+        assertEquals("spot", bare.kind)
+        assertEquals("", bare.text)
+        assertEquals(0, bare.score)
+    }
+
+    @Test
     fun getPostsSeedsFromSampleWhenEmptyByDefault() {
         val cache = FakeFeedCache()
         val remote = FakeFeedRemote(available = false)
