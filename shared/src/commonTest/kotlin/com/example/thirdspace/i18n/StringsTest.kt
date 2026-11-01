@@ -44,6 +44,10 @@ class StringsTest {
         s.followButton, s.unfollowButton,
         s.followListFollowersTitle, s.followListFollowingTitle,
         s.followSearchPlaceholder, s.followEmpty,
+        s.collectionsTabTitle, s.newCollection, s.collectionNamePlaceholder,
+        s.createCollection, s.saveToCollection, s.addToCollection,
+        s.removeFromCollection, s.renameCollection, s.deleteCollection,
+        s.emptyCollections, s.emptyCollectionSpots,
         s.profileEditTitle, s.editTabProfile, s.editTabAccount,
         s.fieldName, s.fieldBio, s.fieldCity, s.bioPlaceholder,
         s.chooseBanner, s.remove, s.chooseAvatar,
@@ -90,6 +94,20 @@ class StringsTest {
         assertEquals("was here", En.checkInLabel(1))
         assertEquals("were here", En.checkInLabel(2))
         assertNotEquals(En.checkInLabel(1), En.checkInLabel(2))
+    }
+
+    @Test
+    fun collectionSpotCountDiffersBySingularPluralDe() {
+        assertEquals("1 Spot", De.collectionSpotCount(1))
+        assertEquals("2 Spots", De.collectionSpotCount(2))
+        assertNotEquals(De.collectionSpotCount(1), De.collectionSpotCount(2))
+    }
+
+    @Test
+    fun collectionSpotCountDiffersBySingularPluralEn() {
+        assertEquals("1 spot", En.collectionSpotCount(1))
+        assertEquals("2 spots", En.collectionSpotCount(2))
+        assertNotEquals(En.collectionSpotCount(1), En.collectionSpotCount(2))
     }
 
     @Test

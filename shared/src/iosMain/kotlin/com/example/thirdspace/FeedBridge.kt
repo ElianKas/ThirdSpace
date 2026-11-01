@@ -2,10 +2,12 @@ package com.example.thirdspace
 
 import com.example.thirdspace.data.AuthRepository
 import com.example.thirdspace.data.AuthResult
+import com.example.thirdspace.data.Collections
 import com.example.thirdspace.data.Feed
 import com.example.thirdspace.data.FeedPost
 import com.example.thirdspace.data.FollowUser
 import com.example.thirdspace.data.Follows
+import com.example.thirdspace.data.SpotCollection
 import com.example.thirdspace.data.ProfileMapping
 import com.example.thirdspace.data.Profiles
 import com.example.thirdspace.data.SupabaseFollowRepository
@@ -191,6 +193,29 @@ data class IosFollowUser(
 )
 
 /**
+ * Flat, ObjC-friendly snapshot of a single spot collection ("Liste") for the
+ * SwiftUI collections screens (Phase C3).
+ *
+ * Only String / Int cross the boundary (no nullables, no Long, no enums).
+ * Mirrors the shared [com.example.thirdspace.data.SpotCollection] so the
+ * collections UI has a single source of truth in the shared module.
+ *
+ * - [id]             — the collection's id (a real persisted uid, or a local
+ *                      `temp-…` id for an optimistic, not-yet-pushed row).
+ * - [name]           — the collection's display name (dynamic content, NOT
+ *                      translated).
+ * - [spotCount]      — how many spots are saved in this collection.
+ * - [createdAtLabel] — a shared-side formatted creation label ("" when
+ *                      unknown / unparseable), NOT translated.
+ */
+data class IosSpotCollection(
+    val id: String,
+    val name: String,
+    val spotCount: Int,
+    val createdAtLabel: String,
+)
+
+/**
  * Flat, ObjC-friendly snapshot of ALL localized UI strings for one language.
  *
  * Only String crosses the boundary for the simple keys; the four
@@ -279,6 +304,18 @@ data class IosStrings(
     val followListFollowingTitle: String,
     val followSearchPlaceholder: String,
     val followEmpty: String,
+    // Collections (Phase C4)
+    val collectionsTabTitle: String,
+    val newCollection: String,
+    val collectionNamePlaceholder: String,
+    val createCollection: String,
+    val saveToCollection: String,
+    val addToCollection: String,
+    val removeFromCollection: String,
+    val renameCollection: String,
+    val deleteCollection: String,
+    val emptyCollections: String,
+    val emptyCollectionSpots: String,
     // Profile edit screen
     val profileEditTitle: String,
     val editTabProfile: String,
@@ -351,6 +388,9 @@ data class IosStrings(
     /** Account tab "current email" line for the (non-translated) [email]. */
     fun accountCurrentEmail(email: String): String = table.accountCurrentEmail(email)
 
+    /** Per-collection spot count for [count] (e.g. "1 Spot" / "5 Spots"). */
+    fun collectionSpotCount(count: Int): String = table.collectionSpotCount(count)
+
     companion object {
         /** Build a flat [IosStrings] snapshot for the given [languageCode]. */
         fun from(languageCode: String): IosStrings {
@@ -420,6 +460,17 @@ data class IosStrings(
                 followListFollowingTitle = s.followListFollowingTitle,
                 followSearchPlaceholder = s.followSearchPlaceholder,
                 followEmpty = s.followEmpty,
+                collectionsTabTitle = s.collectionsTabTitle,
+                newCollection = s.newCollection,
+                collectionNamePlaceholder = s.collectionNamePlaceholder,
+                createCollection = s.createCollection,
+                saveToCollection = s.saveToCollection,
+                addToCollection = s.addToCollection,
+                removeFromCollection = s.removeFromCollection,
+                renameCollection = s.renameCollection,
+                deleteCollection = s.deleteCollection,
+                emptyCollections = s.emptyCollections,
+                emptyCollectionSpots = s.emptyCollectionSpots,
                 profileEditTitle = s.profileEditTitle,
                 editTabProfile = s.editTabProfile,
                 editTabAccount = s.editTabAccount,
@@ -1036,6 +1087,142 @@ object FeedBridge {
     /** Run [block], returning its result or `null` if it threw (best-effort). */
     private inline fun <T> runCatchingOrNull(block: () -> T): T? =
         try { block() } catch (_: Throwable) { null }
+
+    // MARK: Collections / saved-spot lists (flat, callback-based) — Phase C3
+
+    /** Build a flat [IosSpotCollection] from a shared [SpotCollection]. */
+    private fun SpotCollection.toIos(): IosSpotCollection = IosSpotCollection(
+        id = id,
+        name = name,
+        spotCount = spotCount,
+        createdAtLabel = createdAtLabel,
+    )
+
+    /**
+     * The CURRENT user's cached collections as flat [IosSpotCollection] — a
+     * PURE cache read ([CollectionRepository.collections]); empty before the
+     * first [loadCollections]. No remote fetch. FLAT list out.
+     */
+    fun collections(): List<IosSpotCollection> =
+        Collections.repository.collections().map { it.toIos() }
+
+    /**
+     * The cached spots saved in [collectionId] as flat [IosSpot] — a PURE cache
+     * read ([CollectionRepository.spotsIn]); empty before the first
+     * [loadSpotsInCollection]. No remote fetch. Reuses the shared [iosSpot]
+     * helper so Swift gets the SAME flat spot shape the map already uses.
+     */
+    fun spotsInCollection(collectionId: String): List<IosSpot> =
+        Collections.repository.spotsIn(collectionId).map { iosSpot(it) }
+
+    /**
+     * The ids of the collections that contain [spotId] — a PURE cache read
+     * ([CollectionRepository.collectionsContaining]); empty before any
+     * [loadMembership] / optimistic add. No remote fetch. FLAT String list out.
+     */
+    fun collectionsContaining(spotId: String): List<String> =
+        Collections.repository.collectionsContaining(spotId)
+
+    /**
+     * Whether [spotId] is saved in [collectionId] — a PURE cache read
+     * ([CollectionRepository.isSpotInCollection]); `false` before any
+     * [loadMembership] / optimistic add. No remote fetch. Flat Bool out.
+     */
+    fun isSpotInCollection(collectionId: String, spotId: String): Boolean =
+        Collections.repository.isSpotInCollection(collectionId, spotId)
+
+    /**
+     * Explicitly refresh the current user's collection list from the backend;
+     * the flat [completion] fires (no args) on the MAIN THREAD once kicked off.
+     * Swift re-reads [collections] in it. Mirrors [loadFollowers]. A live change
+     * also arrives via [observeCollections].
+     */
+    fun loadCollections(completion: () -> Unit) {
+        Collections.refreshCollections()
+        onMain { completion() }
+    }
+
+    /**
+     * Explicitly refresh the spots saved in [collectionId] from the backend;
+     * the flat [completion] fires (no args) on the MAIN THREAD once kicked off.
+     * Swift re-reads [spotsInCollection] in it.
+     */
+    fun loadSpotsInCollection(collectionId: String, completion: () -> Unit) {
+        Collections.refreshSpotsIn(collectionId)
+        onMain { completion() }
+    }
+
+    /**
+     * Explicitly refresh which collections contain [spotId] from the backend;
+     * the flat [completion] fires (no args) on the MAIN THREAD once kicked off.
+     * Swift re-reads [collectionsContaining] / [isSpotInCollection] in it.
+     */
+    fun loadMembership(spotId: String, completion: () -> Unit) {
+        Collections.refreshMembership(spotId)
+        onMain { completion() }
+    }
+
+    /**
+     * Create a collection named [name] through the shared [Collections] seam:
+     * OPTIMISTIC in-memory insert (observers re-read at once via
+     * [observeCollections]) then a best-effort remote push. The flat
+     * [completion] receives the `Boolean` outcome on the MAIN THREAD (`false` =
+     * not persisted remotely: offline / unauth / blank name — NO durable queue,
+     * the optimistic row is kept). FLAT: String arg + a Bool closure; no
+     * suspend/supabase type crosses.
+     */
+    fun createCollection(name: String, completion: (Boolean) -> Unit) {
+        Collections.createCollection(name) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Rename [collectionId] to [name] (same optimistic + best-effort +
+     * flat-Bool-on-main contract as [createCollection]; `false` = not persisted
+     * remotely, optimistic rename kept).
+     */
+    fun renameCollection(collectionId: String, name: String, completion: (Boolean) -> Unit) {
+        Collections.renameCollection(collectionId, name) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Delete [collectionId] (same optimistic + best-effort + flat-Bool-on-main
+     * contract as [createCollection]; `false` = not persisted remotely,
+     * optimistic removal kept).
+     */
+    fun deleteCollection(collectionId: String, completion: (Boolean) -> Unit) {
+        Collections.deleteCollection(collectionId) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Save [spotId] into [collectionId] (same optimistic + best-effort +
+     * flat-Bool-on-main contract as [createCollection]; `false` = not persisted
+     * remotely, optimistic membership kept).
+     */
+    fun addSpotToCollection(collectionId: String, spotId: String, completion: (Boolean) -> Unit) {
+        Collections.addSpot(collectionId, spotId) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Unsave [spotId] from [collectionId] (same optimistic + best-effort +
+     * flat-Bool-on-main contract as [createCollection]; `false` = not persisted
+     * remotely, optimistic removal kept).
+     */
+    fun removeSpotFromCollection(collectionId: String, spotId: String, completion: (Boolean) -> Unit) {
+        Collections.removeSpot(collectionId, spotId) { ok -> onMain { completion(ok) } }
+    }
+
+    /**
+     * Observe collection changes caused by a background refresh or an optimistic
+     * create/rename/delete/add/remove. [listener] is invoked (no args) on the
+     * MAIN THREAD so a SwiftUI view can re-read [collections] /
+     * [spotsInCollection] / the membership reads. FLAT: no args, plain closure.
+     * Mirrors [observeFollows].
+     */
+    fun observeCollections(listener: () -> Unit) {
+        Collections.setChangeListener {
+            onMain { listener() }
+        }
+    }
 
     /**
      * The feed, sourced from the shared offline-first [Feed.posts] repository

@@ -36,6 +36,17 @@ struct MapBaseView: View {
     /// Non-nil carries the pending coordinate (from a tap or the FAB).
     @State private var pendingSpot: PendingSpot?
 
+    /// Phase C5: drives the lean `MapSpotSheetView` via the project
+    /// `.sheet(item:)` pattern. Set when one of the app's OWN spot pins is
+    /// tapped (`MapboxMapView.onSpotTap`). A pin tap opens this detail sheet and
+    /// NEVER the create flow (pin-tap precedence is enforced inside
+    /// `MapboxMapView` by returning `true` from the pin `.onTapGesture`, which
+    /// stops the empty-map `TapInteraction` from firing). This is a SEPARATE
+    /// `@State` item from `pendingSpot`, so the create sheet and the detail
+    /// sheet are never requested at the same time (the two triggers are mutually
+    /// exclusive by construction — empty map vs. pin).
+    @State private var selectedSpot: UISpot?
+
     /// Getter handed up from `MapboxMapView` to read the CURRENT map center for
     /// the FAB's default coordinate. Nil until the map has appeared.
     @State private var mapCenter: (() -> CLLocationCoordinate2D?)?
@@ -66,6 +77,15 @@ struct MapBaseView: View {
                     pendingSpot = PendingSpot(
                         coordinate: (lat: coordinate.latitude, lng: coordinate.longitude)
                     )
+                },
+                onSpotTap: { spot in
+                    // Phase C5: a tap on one of the app's own spot pins opens
+                    // the lean MapSpotSheetView for that spot. The tapped UISpot
+                    // is resolved inside MapboxMapView's CircleAnnotationGroup
+                    // closure, so we just present it. This path took PRECEDENCE
+                    // over the empty-map create tap (handled in MapboxMapView),
+                    // so a pin tap never starts a create flow.
+                    selectedSpot = spot
                 },
                 onPoiTap: { coordinate, name, maki, clazz in
                     // Phase 4: adopt a tapped Mapbox POI. Resolve the category
@@ -172,6 +192,18 @@ struct MapBaseView: View {
         .sheet(isPresented: $showCreatePost, onDismiss: { spots = FeedData.spots() }) {
             CreatePostView(preselectedSpotId: createPostSpotId)
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        // Phase C5: lean spot-detail sheet opened by tapping an own spot pin.
+        // Follows the project sheet pattern (Identifiable @State item +
+        // .medium/.large detents + drag indicator). Driven by a SEPARATE
+        // @State item (`selectedSpot`) from the create flow's `pendingSpot`,
+        // so the detail sheet and the create sheet are never requested at
+        // once (pin tap vs. empty-map tap are mutually exclusive). From here
+        // the user opens the nested CollectionPickerSheetView.
+        .sheet(item: $selectedSpot) { spot in
+            MapSpotSheetView(spot: spot)
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
     }

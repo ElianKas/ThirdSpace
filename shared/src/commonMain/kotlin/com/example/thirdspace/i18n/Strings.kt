@@ -129,6 +129,21 @@ interface Strings {
     val followSearchPlaceholder: String
     val followEmpty: String
 
+    // Collections / saved-spot lists (Phase C4) — static UI text only; the
+    // collection names themselves are dynamic content and are NOT part of the
+    // string table. The per-collection spot count is a plural FUNCTION below.
+    val collectionsTabTitle: String
+    val newCollection: String
+    val collectionNamePlaceholder: String
+    val createCollection: String
+    val saveToCollection: String
+    val addToCollection: String
+    val removeFromCollection: String
+    val renameCollection: String
+    val deleteCollection: String
+    val emptyCollections: String
+    val emptyCollectionSpots: String
+
     // Profile edit screen (ProfileEditView) — static UI text only; the current
     // email and the seeded name/bio/city are dynamic content and are NOT part
     // of the string table.
@@ -208,6 +223,12 @@ interface Strings {
      * interpolated: DE "Aktuell: $email", EN "Current: $email".
      */
     fun accountCurrentEmail(email: String): String
+
+    /**
+     * Per-collection spot count: DE "1 Spot" / "$count Spots",
+     * EN "1 spot" / "$count spots".
+     */
+    fun collectionSpotCount(count: Int): String
 }
 
 /** German strings — the default language. */
@@ -319,6 +340,19 @@ object De : Strings {
     override val followSearchPlaceholder = "Personen suchen"
     override val followEmpty = "Noch niemand hier"
 
+    // Collections
+    override val collectionsTabTitle = "Sammlungen"
+    override val newCollection = "Neue Sammlung"
+    override val collectionNamePlaceholder = "Name der Sammlung"
+    override val createCollection = "Erstellen"
+    override val saveToCollection = "In Sammlung speichern"
+    override val addToCollection = "Hinzufügen"
+    override val removeFromCollection = "Entfernen"
+    override val renameCollection = "Umbenennen"
+    override val deleteCollection = "Löschen"
+    override val emptyCollections = "Noch keine Sammlungen"
+    override val emptyCollectionSpots = "Noch keine Spots in dieser Sammlung"
+
     // Profile edit screen
     override val profileEditTitle = "Profil-Einstellungen"
     override val editTabProfile = "Profil"
@@ -387,6 +421,9 @@ object De : Strings {
 
     override fun accountCurrentEmail(email: String): String =
         "Aktuell: $email"
+
+    override fun collectionSpotCount(count: Int): String =
+        if (count == 1) "1 Spot" else "$count Spots"
 }
 
 /** English strings. */
@@ -498,6 +535,19 @@ object En : Strings {
     override val followSearchPlaceholder = "Search people"
     override val followEmpty = "Nobody here yet"
 
+    // Collections
+    override val collectionsTabTitle = "Collections"
+    override val newCollection = "New collection"
+    override val collectionNamePlaceholder = "Collection name"
+    override val createCollection = "Create"
+    override val saveToCollection = "Save to collection"
+    override val addToCollection = "Add"
+    override val removeFromCollection = "Remove"
+    override val renameCollection = "Rename"
+    override val deleteCollection = "Delete"
+    override val emptyCollections = "No collections yet"
+    override val emptyCollectionSpots = "No spots in this collection yet"
+
     // Profile edit screen
     override val profileEditTitle = "Profile settings"
     override val editTabProfile = "Profile"
@@ -566,4 +616,7 @@ object En : Strings {
 
     override fun accountCurrentEmail(email: String): String =
         "Current: $email"
+
+    override fun collectionSpotCount(count: Int): String =
+        if (count == 1) "1 spot" else "$count spots"
 }

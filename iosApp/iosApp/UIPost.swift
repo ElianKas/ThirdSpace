@@ -562,4 +562,104 @@ enum FeedData {
     static func loadOtherProfile(userId: String, completion: @escaping () -> Void) {
         FeedBridge.shared.loadOtherProfile(userId: userId, completion: completion)
     }
+
+    // MARK: - Collections / saved-spot lists (Phase C4)
+
+    /// The CURRENT user's cached collections as `UISpotCollection` — a PURE
+    /// cache read (empty before the first `loadCollections`). No remote fetch.
+    static func collections() -> [UISpotCollection] {
+        FeedBridge.shared.collections().map { UISpotCollection(bridged: $0) }
+    }
+
+    /// The cached spots saved in `collectionId` as `UISpot` — a PURE cache read
+    /// (empty before the first `loadSpotsInCollection`). Reuses the same flat
+    /// spot shape the map already consumes. No remote fetch.
+    static func spotsInCollection(collectionId: String) -> [UISpot] {
+        FeedBridge.shared.spotsInCollection(collectionId: collectionId).map { UISpot(bridged: $0) }
+    }
+
+    /// The ids of the collections that contain `spotId` — a PURE cache read
+    /// (empty before any `loadMembership` / optimistic add). No remote fetch.
+    static func collectionsContaining(spotId: String) -> [String] {
+        FeedBridge.shared.collectionsContaining(spotId: spotId)
+    }
+
+    /// Whether `spotId` is saved in `collectionId` — a PURE cache read (`false`
+    /// before any `loadMembership` / optimistic add). No remote fetch.
+    static func isSpotInCollection(collectionId: String, spotId: String) -> Bool {
+        FeedBridge.shared.isSpotInCollection(collectionId: collectionId, spotId: spotId)
+    }
+
+    /// Kick off a background refresh of the current user's collection list. The
+    /// flat `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `collections()` in it. A live change also arrives via `observeCollections`.
+    static func loadCollections(completion: @escaping () -> Void) {
+        FeedBridge.shared.loadCollections(completion: completion)
+    }
+
+    /// Kick off a background refresh of the spots saved in `collectionId`. The
+    /// flat `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `spotsInCollection(collectionId:)` in it.
+    static func loadSpotsInCollection(collectionId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadSpotsInCollection(collectionId: collectionId, completion: completion)
+    }
+
+    /// Kick off a background refresh of which collections contain `spotId`. The
+    /// flat `completion` fires on the MAIN thread once scheduled; callers re-read
+    /// `collectionsContaining(spotId:)` / `isSpotInCollection(...)` in it.
+    static func loadMembership(spotId: String, completion: @escaping () -> Void) {
+        FeedBridge.shared.loadMembership(spotId: spotId, completion: completion)
+    }
+
+    /// Create a collection named `name` (optimistic + best-effort remote push).
+    /// The flat `completion` fires on the MAIN thread with the `Bool` outcome;
+    /// `false` means NOT persisted remotely (offline / unauth / blank name — no
+    /// durable queue, optimistic row kept). The bridged Kotlin closure hands back
+    /// a boxed `KotlinBoolean`; unbox it at the boundary.
+    static func createCollection(name: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.createCollection(name: name) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Rename `collectionId` to `name` (same optimistic + best-effort +
+    /// flat-Bool-on-main contract as `createCollection`).
+    static func renameCollection(collectionId: String, name: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.renameCollection(collectionId: collectionId, name: name) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Delete `collectionId` (same optimistic + best-effort + flat-Bool-on-main
+    /// contract as `createCollection`).
+    static func deleteCollection(collectionId: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.deleteCollection(collectionId: collectionId) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Save `spotId` into `collectionId` (same optimistic + best-effort +
+    /// flat-Bool-on-main contract as `createCollection`).
+    static func addSpotToCollection(collectionId: String, spotId: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.addSpotToCollection(collectionId: collectionId, spotId: spotId) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Unsave `spotId` from `collectionId` (same optimistic + best-effort +
+    /// flat-Bool-on-main contract as `createCollection`).
+    static func removeSpotFromCollection(collectionId: String, spotId: String, completion: @escaping (Bool) -> Void) {
+        FeedBridge.shared.removeSpotFromCollection(collectionId: collectionId, spotId: spotId) { ok in
+            completion(ok.boolValue)
+        }
+    }
+
+    /// Register a flat listener invoked on the MAIN thread whenever the shared
+    /// collections change (background refresh or an optimistic
+    /// create/rename/delete/add/remove), so the UI can re-read `collections()` /
+    /// `spotsInCollection(...)` / the membership reads. Register once per view
+    /// lifetime. Mirrors `observeFollows`.
+    static func observeCollections(_ listener: @escaping () -> Void) {
+        FeedBridge.shared.observeCollections(listener: listener)
+    }
 }

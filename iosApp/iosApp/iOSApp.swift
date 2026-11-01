@@ -30,11 +30,19 @@ struct iOSApp: App {
     /// configured (or unconfigured) client, mirroring `profileStore`.
     @State private var followStore: FollowStore
 
+    /// App-wide saved-spot collections state, injected alongside `followStore`.
+    /// Backs the Phase C5/C6 collections tab + the "save to collection" picker.
+    /// Thin `@Observable` wrapper over the shared `FeedBridge` collections seam;
+    /// constructed AFTER `configureSupabase()` so its reads see the configured
+    /// (or unconfigured) client, mirroring `profileStore` / `followStore`.
+    @State private var collectionsStore: CollectionsStore
+
     init() {
         Self.configureSupabase()
         _session = State(initialValue: Session())
         _profileStore = State(initialValue: ProfileStore())
         _followStore = State(initialValue: FollowStore())
+        _collectionsStore = State(initialValue: CollectionsStore())
     }
 
     /// Read the Supabase project URL + publishable key from Info.plist (seeded
@@ -71,6 +79,7 @@ struct iOSApp: App {
                 .environment(session)
                 .environment(profileStore)
                 .environment(followStore)
+                .environment(collectionsStore)
         }
     }
 }

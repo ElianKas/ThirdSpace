@@ -103,6 +103,13 @@ struct MapboxMapView: View {
     /// Called with the geographic coordinate of a tap/long-press on empty map.
     private let onMapTap: (CLLocationCoordinate2D) -> Void
 
+    /// Called when one of the app's OWN spot pins is tapped (Phase C5). The
+    /// tapped `UISpot` is already in the `CircleAnnotationGroup` closure scope,
+    /// so the handler resolves exactly which spot was tapped and the parent can
+    /// open `MapSpotSheetView` for it. A pin tap takes PRECEDENCE over the
+    /// empty-map create tap (see the `.onTapGesture` precedence note below).
+    private let onSpotTap: (UISpot) -> Void
+
     /// Called when a built-in Mapbox POI is tapped (Phase 4). Carries ONLY flat
     /// values: the POI's coordinate plus its `name`, `maki` icon id and symbol
     /// `clazz` (empty strings when the style omits a field). The parent resolves
@@ -124,11 +131,13 @@ struct MapboxMapView: View {
     init(
         spots: [UISpot] = FeedData.spots(),
         onMapTap: @escaping (CLLocationCoordinate2D) -> Void = { _ in },
+        onSpotTap: @escaping (UISpot) -> Void = { _ in },
         onPoiTap: @escaping (CLLocationCoordinate2D, String, String, String) -> Void = { _, _, _, _ in },
         currentCenter: @escaping (@escaping () -> CLLocationCoordinate2D?) -> Void = { _ in }
     ) {
         self.spots = spots
         self.onMapTap = onMapTap
+        self.onSpotTap = onSpotTap
         self.onPoiTap = onPoiTap
         self.currentCenter = currentCenter
     }
@@ -149,6 +158,23 @@ struct MapboxMapView: View {
                 .circleColor(StyleColor(Color(hex: spot.colorHex)))
                 .circleStrokeColor(StyleColor(.white))
                 .circleStrokeWidth(Self.pinStrokeWidth)
+                // Phase C5: tapping one of the app's OWN spot pins opens the
+                // lean MapSpotSheetView for it. API used (PRIMARY, confirmed to
+                // compile against the pinned SDK 11.19.0): the v11 data-driven
+                // annotation builder `CircleAnnotation.onTapGesture { context in
+                // -> Bool }` — a single-argument closure receiving the tap
+                // `InteractionContext` and returning a `Bool` (a zero-arg
+                // closure does NOT compile: the context arg "cannot be
+                // implicitly ignored"). `spot` is in closure scope, so the
+                // handler resolves exactly which spot was tapped without any
+                // featureset/query plumbing. Returning `true` marks the tap
+                // HANDLED so it does NOT fall through to the generic empty-map
+                // `TapInteraction` below → a pin tap opens the sheet and NEVER
+                // starts the create flow (pin-tap precedence over empty-map tap).
+                .onTapGesture { _ in
+                    onSpotTap(spot)
+                    return true
+                }
             }
 
             // Phase 4: adopt a built-in Standard-style POI by tapping it. The

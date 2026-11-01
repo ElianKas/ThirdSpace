@@ -15,6 +15,10 @@ permissions:
       effect: allow
     - capability: subagent
       effect: allow
+    - capability: web_search
+      effect: allow
+    - capability: web_fetch
+      effect: allow
 
 ---
 
