@@ -143,6 +143,12 @@ interface Strings {
     val deleteCollection: String
     val emptyCollections: String
     val emptyCollectionSpots: String
+    /**
+     * Shown in the "save to collection" picker when the spot can't yet be
+     * saved — i.e. its id is not a server uuid (a demo/offline-seed or a
+     * not-yet-persisted local spot). Static UI text.
+     */
+    val collectionSpotNotSaveable: String
 
     // Profile edit screen (ProfileEditView) — static UI text only; the current
     // email and the seeded name/bio/city are dynamic content and are NOT part
@@ -352,6 +358,7 @@ object De : Strings {
     override val deleteCollection = "Löschen"
     override val emptyCollections = "Noch keine Sammlungen"
     override val emptyCollectionSpots = "Noch keine Spots in dieser Sammlung"
+    override val collectionSpotNotSaveable = "Dieser Spot kann noch nicht gespeichert werden"
 
     // Profile edit screen
     override val profileEditTitle = "Profil-Einstellungen"
@@ -547,6 +554,7 @@ object En : Strings {
     override val deleteCollection = "Delete"
     override val emptyCollections = "No collections yet"
     override val emptyCollectionSpots = "No spots in this collection yet"
+    override val collectionSpotNotSaveable = "This spot can't be saved yet"
 
     // Profile edit screen
     override val profileEditTitle = "Profile settings"

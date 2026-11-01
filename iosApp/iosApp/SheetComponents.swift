@@ -11,21 +11,16 @@ import SwiftUI
 
 /// A small rounded badge showing the spot category. Subtle surface fill with a
 /// hairline border and foreground text, consistent with the app's card look.
+///
+/// As of slice B3 this is a THIN WRAPPER over the shared `AppChip(.badge)`, so
+/// its call sites (SpotSheetView / CreatePostView) keep working while the look
+/// is unified with the map/AddSpot chips. The public name/signature are
+/// unchanged.
 struct CategoryPill: View {
     let label: String
 
     var body: some View {
-        Text(label)
-            .font(.system(size: AppTypography.caption, weight: .medium))
-            .foregroundColor(AppColor.foreground)
-            .padding(.horizontal, AppDimens.spacingMD)
-            .padding(.vertical, AppDimens.spacingSM)
-            .background(
-                Capsule().fill(AppColor.surface)
-            )
-            .overlay(
-                Capsule().stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
+        AppChip(label: label, style: .badge)
     }
 }
 
@@ -33,6 +28,12 @@ struct CategoryPill: View {
 
 /// A compact action-row button. `.bordered` renders a surface fill with a
 /// hairline border; `.primary` renders a filled brand button with white text.
+///
+/// As of slice B2 this is a THIN WRAPPER over the shared `AppButton`
+/// (`.primary` → `AppButton(.primary)`, `.bordered` → `AppButton(.secondary)`),
+/// so its many call sites keep working while the styling + the ONE disabled
+/// convention are now unified with every other app button. The public
+/// name/signature are unchanged.
 struct SheetActionButton: View {
     enum Style { case bordered, primary }
 
@@ -42,61 +43,34 @@ struct SheetActionButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: AppDimens.spacingSM) {
-                Image(systemName: icon)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Text(label)
-                    .font(.system(size: AppTypography.footnote, weight: .semibold))
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingMD)
-            .foregroundColor(style == .primary ? .white : AppColor.foreground)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(style == .primary ? AppColor.brand : AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(style == .primary ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
-            )
-        }
-        .buttonStyle(.plain)
+        AppButton(
+            label: label,
+            style: style == .primary ? .primary : .secondary,
+            systemImage: icon,
+            action: action
+        )
     }
 }
 
 // MARK: - Full-width bordered button
 
 /// A full-width bordered button used for the comment and share actions.
+///
+/// As of slice B2 this is a THIN WRAPPER over `AppButton(.secondary)` with its
+/// leading icon+label layout (full-width, so the content centers like the other
+/// buttons). The public name/signature are unchanged.
 struct SheetWideButton: View {
     let icon: String
     let label: String
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: AppDimens.spacingSM) {
-                Image(systemName: icon)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Text(label)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingMD)
-            .padding(.horizontal, AppDimens.spacingLG)
-            .foregroundColor(AppColor.foreground)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
-        }
-        .buttonStyle(.plain)
+        AppButton(
+            label: label,
+            style: .secondary,
+            systemImage: icon,
+            action: action
+        )
     }
 }
 

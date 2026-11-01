@@ -122,7 +122,11 @@ struct CollectionDetailView: View {
     private var list: some View {
         List {
             ForEach(spots) { spot in
-                CollectionSpotRow(spot: spot)
+                AppListRow(
+                    leading: .swatch(colorHex: spot.colorHex),
+                    title: spot.name,
+                    subtitle: "\(spot.category) · \(spot.neighborhood)"
+                )
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(AppColor.background)
                     .listRowSeparatorTint(AppColor.hairline)
@@ -143,18 +147,7 @@ struct CollectionDetailView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        VStack(spacing: AppDimens.spacingMD) {
-            Image(systemName: "bookmark")
-                .font(.system(size: AppTypography.headline))
-                .foregroundColor(AppColor.textFaint)
-            Text(loc.strings.emptyCollectionSpots)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.mutedForeground)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, AppDimens.spacingXXL)
-        .padding(.top, AppDimens.spacingXXL)
+        EmptyStateView(systemImage: "bookmark", text: loc.strings.emptyCollectionSpots)
     }
 
     // MARK: Actions
@@ -182,34 +175,3 @@ struct CollectionDetailView: View {
     }
 }
 
-// MARK: - Private subviews
-
-/// A simple spot row for the collection-detail list: color swatch + name +
-/// "category · neighborhood". A LOCAL equivalent of `ProfileView`'s file-private
-/// `ProfileSpotRow` (intentionally not widened); tokens only. Name / category /
-/// neighborhood are dynamic content, interpolated verbatim (NOT translated).
-private struct CollectionSpotRow: View {
-    let spot: UISpot
-
-    var body: some View {
-        HStack(spacing: AppDimens.spacingMD) {
-            RoundedRectangle(cornerRadius: AppDimens.radiusSM)
-                .fill(Color(hex: spot.colorHex))
-                .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
-                Text(spot.name)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                    .foregroundColor(AppColor.foreground)
-                Text("\(spot.category) · \(spot.neighborhood)")
-                    .font(.system(size: AppTypography.footnote))
-                    .foregroundColor(AppColor.mutedForeground)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, AppDimens.spacingXL)
-        .padding(.vertical, AppDimens.spacingMD)
-        .contentShape(Rectangle())
-    }
-}

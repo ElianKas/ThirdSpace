@@ -316,6 +316,7 @@ data class IosStrings(
     val deleteCollection: String,
     val emptyCollections: String,
     val emptyCollectionSpots: String,
+    val collectionSpotNotSaveable: String,
     // Profile edit screen
     val profileEditTitle: String,
     val editTabProfile: String,
@@ -471,6 +472,7 @@ data class IosStrings(
                 deleteCollection = s.deleteCollection,
                 emptyCollections = s.emptyCollections,
                 emptyCollectionSpots = s.emptyCollectionSpots,
+                collectionSpotNotSaveable = s.collectionSpotNotSaveable,
                 profileEditTitle = s.profileEditTitle,
                 editTabProfile = s.editTabProfile,
                 editTabAccount = s.editTabAccount,
@@ -630,6 +632,23 @@ object FeedBridge {
      * own profile and suppress self author-taps in the feed/comments.
      */
     fun currentUserId(): String = AuthRepository.currentUserId()
+
+    /**
+     * Whether [spotId] is a SAVEABLE spot id — i.e. a canonical uuid that could
+     * be a legal `collection_spots.spot_id` (a Postgres uuid FK to
+     * `public.spots`). Flat Bool, synchronous, no callback (mirrors
+     * [currentUserId]). Reuses the SHARED [com.example.thirdspace.data.Uuid]
+     * validator so the shape rule has a single source of truth across the
+     * repository guard and the Swift collection picker.
+     *
+     * The collection picker consults this to show a short "this spot can't be
+     * saved yet" note / disable its toggles for a demo/offline-seed or
+     * not-yet-persisted local spot, instead of silently failing. A `false` here
+     * matches exactly the ids that [CollectionRepository.addSpot] rejects as a
+     * no-op, so the UI and the guard agree.
+     */
+    fun isSavableSpotId(spotId: String): Boolean =
+        com.example.thirdspace.data.Uuid.isValid(spotId)
 
     /**
      * Create a new account. Launches the suspend sign-up on the bridge scope

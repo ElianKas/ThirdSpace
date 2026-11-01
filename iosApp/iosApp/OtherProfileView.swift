@@ -196,24 +196,18 @@ struct OtherProfileView: View {
     /// (so an existing follow reads as the "active" state). Tapping toggles
     /// optimistically through the store, which re-reads the follow state.
     private var followButton: some View {
-        Button(action: toggleFollow) {
-            Text(isFollowing ? loc.strings.unfollowButton : loc.strings.followButton)
-                .font(.system(size: AppTypography.body, weight: .semibold))
-                .foregroundColor(isFollowing ? AppColor.foreground : .white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppDimens.spacingMD)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
-                        .fill(isFollowing ? AppColor.page : AppColor.brand)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
-                        .stroke(AppColor.border, lineWidth: isFollowing ? AppDimens.hairline : 0)
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(isToggling)
-        .opacity(isToggling ? 0.6 : 1)
+        AppButton(
+            label: isFollowing ? loc.strings.unfollowButton : loc.strings.followButton,
+            // Following → the soft (page + border, foreground text) "active"
+            // look; not-following → a filled brand primary. Replaces the
+            // hand-rolled stroke-width-switch with two shared styles.
+            style: isFollowing ? .soft : .primary,
+            // The in-flight toggle guard now flows through the shared button's
+            // ONE disabled convention (`.opacity(0.5)` + `.disabled`) via
+            // `isWorking`, replacing the bespoke `.opacity(0.6)`.
+            isWorking: isToggling,
+            action: toggleFollow
+        )
     }
 
     private func toggleFollow() {

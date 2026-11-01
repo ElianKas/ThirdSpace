@@ -138,23 +138,9 @@ struct AddSpotSheetView: View {
 
     private var nameSection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(loc.strings.addSpotNameLabel)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.addSpotNameLabel)
 
-            TextField(loc.strings.addSpotNamePlaceholder, text: $name)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.foreground)
-                .padding(.horizontal, AppDimens.spacingMD)
-                .padding(.vertical, AppDimens.spacingMD)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .fill(AppColor.surface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-                )
+            AppTextField(placeholder: loc.strings.addSpotNamePlaceholder, text: $name)
         }
     }
 
@@ -162,9 +148,7 @@ struct AddSpotSheetView: View {
 
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(loc.strings.addSpotCategoryLabel)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.addSpotCategoryLabel)
 
             // Wrapping rows of selectable pills. The pill labels + the selected
             // pill's fill color come from the shared module, not Swift.
@@ -179,23 +163,14 @@ struct AddSpotSheetView: View {
     private func categoryPill(_ category: String) -> some View {
         let active = selectedCategory == category
         // Selected pills are tinted with the category's own shared marker color
-        // (resolved shared-side); unselected pills use the frosted surface look
-        // from `FilterChipView`.
+        // (resolved shared-side) via the shared `AppChip(.selectable)` accent;
+        // unselected pills use its frosted surface look. Same component as the
+        // map's `FilterChipView`, just with a per-category accent.
         let activeColor = Color(hex: FeedData.categoryColorHex(category))
         return Button {
             selectedCategory = active ? nil : category
         } label: {
-            Text(category)
-                .font(.system(size: AppTypography.footnote, weight: .medium))
-                .foregroundColor(active ? .white : AppColor.foreground)
-                .padding(.horizontal, AppDimens.spacingLG)
-                .frame(height: 30)
-                .background(
-                    Capsule().fill(active ? activeColor : AppColor.frost)
-                )
-                .overlay(
-                    Capsule().stroke(active ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
-                )
+            AppChip(label: category, style: .selectable(active: active, accent: activeColor))
         }
         .buttonStyle(.plain)
     }
@@ -204,9 +179,7 @@ struct AddSpotSheetView: View {
 
     private var locationSection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
-            Text(loc.strings.addSpotLocationLabel)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.addSpotLocationLabel)
 
             HStack(spacing: AppDimens.spacingSM) {
                 Image(systemName: "mappin.and.ellipse")

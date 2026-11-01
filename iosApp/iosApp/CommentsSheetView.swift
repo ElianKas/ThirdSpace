@@ -103,49 +103,34 @@ struct CommentsSheetView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        VStack(spacing: AppDimens.spacingMD) {
-            Image(systemName: "bubble.left")
-                .font(.system(size: AppTypography.headline))
-                .foregroundColor(AppColor.textFaint)
-            Text(loc.strings.commentsEmpty)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.mutedForeground)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, AppDimens.spacingXXL)
+        EmptyStateView(systemImage: "bubble.left", text: loc.strings.commentsEmpty)
     }
 
     // MARK: Input row
 
     private var inputRow: some View {
         HStack(alignment: .bottom, spacing: AppDimens.spacingMD) {
-            TextField(loc.strings.commentPlaceholder, text: $draft, axis: .vertical)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.foreground)
-                .lineLimit(1...4)
-                .padding(.horizontal, AppDimens.spacingLG)
-                .padding(.vertical, AppDimens.spacingMD)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusLG, style: .continuous)
-                        .fill(AppColor.surface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusLG, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-                )
+            // Shared single-line field (slice B1). Keeps the growing behavior
+            // (`axis: .vertical`, `lineLimit(1...4)`) and the readable
+            // placeholder; the chrome standardizes to the component's `radiusMD`
+            // (was a one-off `radiusLG` pill).
+            AppTextField(
+                placeholder: loc.strings.commentPlaceholder,
+                text: $draft,
+                axis: .vertical,
+                lineLimit: 1...4
+            )
 
-            Button(action: send) {
-                Image(systemName: "arrow.up")
-                    .font(.system(size: AppTypography.title, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 40, height: 40)
-                    .background(
-                        Circle().fill(canSend ? AppColor.brand : AppColor.textFaint)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!canSend)
+            // Shared icon button — a brand circle (size 40) that now dims via
+            // the ONE disabled convention (`.opacity(0.5)`) instead of swapping
+            // its fill to `textFaint` when `!canSend`.
+            AppIconButton(
+                systemImage: "arrow.up",
+                shape: .circle,
+                size: 40,
+                isEnabled: canSend,
+                action: send
+            )
         }
     }
 

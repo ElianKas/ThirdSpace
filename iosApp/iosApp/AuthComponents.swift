@@ -47,63 +47,42 @@ struct AuthScaffold<Content: View>: View {
 
 // MARK: - Labeled field wrapper
 
-/// A semibold caption above arbitrary field content (mirrors ProfileEditView's
-/// private `EditField`, re-declared here so the auth screens don't depend on a
-/// private type).
+/// A semibold caption above arbitrary field content. Thin wrapper over the
+/// shared `LabeledField` (slice B1) so existing call sites keep the `AuthField`
+/// name; the label style + spacing now come from `FieldLabel`/`LabeledField`.
 struct AuthField<Content: View>: View {
     let label: String
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(label)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
-            content()
-        }
+        LabeledField(label: label, content: content)
     }
 }
 
 // MARK: - Text / secure fields
 
-/// A single-line text field with the app's standard surface + border chrome.
-/// `isEmail` applies email keyboard + no autocapitalize/autocorrect.
+/// A single-line text field. Thin wrapper over the shared `AppTextField`
+/// (slice B1), so the auth screens get the unified chrome + the readable
+/// `AppColor.placeholder`. `isEmail` applies email keyboard + no
+/// autocapitalize/autocorrect, identical to before.
 struct AuthTextField: View {
     let placeholder: String
     @Binding var text: String
     let isEmail: Bool
 
     var body: some View {
-        let field = TextField(placeholder, text: $text)
-            .font(.system(size: AppTypography.body))
-            .foregroundColor(AppColor.foreground)
-
-        return Group {
-            if isEmail {
-                field
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-            } else {
-                field
-            }
-        }
-        .authFieldSurface()
+        AppTextField(placeholder: placeholder, text: $text, isEmail: isEmail)
     }
 }
 
-/// A secure (masked) field with the same chrome as `AuthTextField`.
+/// A secure (masked) field. Thin wrapper over the shared `AppSecureField`
+/// (slice B1), with the same chrome + readable placeholder.
 struct AuthSecureField: View {
     let placeholder: String
     @Binding var text: String
 
     var body: some View {
-        SecureField(placeholder, text: $text)
-            .font(.system(size: AppTypography.body))
-            .foregroundColor(AppColor.foreground)
-            .textInputAutocapitalization(.never)
-            .autocorrectionDisabled(true)
-            .authFieldSurface()
+        AppSecureField(placeholder: placeholder, text: $text)
     }
 }
 
@@ -111,6 +90,12 @@ struct AuthSecureField: View {
 
 /// A full-width brand-filled primary button. Shows a spinner (and disables)
 /// while `isWorking`; dims when `!enabled`.
+///
+/// As of slice B2 this is a THIN WRAPPER over the shared `AppButton(.primary)`,
+/// forwarding `isWorking` / `isEnabled`. This unifies its previously taller
+/// `spacingLG` padding onto the standard `spacingMD` height and its
+/// `.opacity(0.5)` onto the one disabled convention. The public name/signature
+/// (used by `LoginView` / `SignUpView`) are unchanged.
 struct AuthPrimaryButton: View {
     let label: String
     let isWorking: Bool
@@ -118,27 +103,13 @@ struct AuthPrimaryButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: AppDimens.spacingSM) {
-                if isWorking {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(.white)
-                }
-                Text(label)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingLG)
-            .foregroundColor(.white)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.brand)
-            )
-            .opacity(enabled ? 1 : 0.5)
-        }
-        .buttonStyle(.plain)
-        .disabled(!enabled)
+        AppButton(
+            label: label,
+            style: .primary,
+            isEnabled: enabled,
+            isWorking: isWorking,
+            action: action
+        )
     }
 }
 
@@ -177,25 +148,5 @@ struct AuthErrorText: View {
     }
 }
 
-// MARK: - Field chrome modifier
-
-private struct AuthFieldSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .padding(.horizontal, AppDimens.spacingMD)
-            .padding(.vertical, AppDimens.spacingMD)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
-    }
-}
-
-private extension View {
-    /// The app's standard surface + hairline-border field chrome.
-    func authFieldSurface() -> some View { modifier(AuthFieldSurface()) }
-}
+// The field chrome lives in `AppControls.swift` as `.appFieldSurface()`; the
+// auth fields now delegate to the shared `AppTextField`/`AppSecureField`.

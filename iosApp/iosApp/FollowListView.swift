@@ -98,7 +98,13 @@ struct FollowListView: View {
                     NavigationLink {
                         OtherProfileView(userId: user.id)
                     } label: {
-                        FollowUserRow(user: user)
+                        AppListRow(
+                            leading: .avatar(name: user.name),
+                            title: user.name,
+                            subtitle: "@\(user.username)",
+                            detail: user.city.isEmpty ? nil : user.city,
+                            trailing: .chevron
+                        )
                     }
                     .buttonStyle(.plain)
 
@@ -114,55 +120,6 @@ struct FollowListView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        VStack(spacing: AppDimens.spacingMD) {
-            Image(systemName: "person.2")
-                .font(.system(size: AppTypography.headline))
-                .foregroundColor(AppColor.textFaint)
-            Text(loc.strings.followEmpty)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.mutedForeground)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.horizontal, AppDimens.spacingXXL)
-        .padding(.top, AppDimens.spacingXXL)
-    }
-}
-
-// MARK: - Private subviews
-
-/// A single follower/following row: avatar + name + "@username" + city. Mirrors
-/// the look of `ProfileSpotRow` / the post attribution row (tokens only). Name /
-/// username / city are dynamic content, interpolated verbatim (NOT translated).
-private struct FollowUserRow: View {
-    let user: UIFollowUser
-
-    var body: some View {
-        HStack(spacing: AppDimens.spacingMD) {
-            AvatarView(name: user.name, size: 44)
-
-            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
-                Text(user.name)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                    .foregroundColor(AppColor.foreground)
-                Text("@\(user.username)")
-                    .font(.system(size: AppTypography.footnote))
-                    .foregroundColor(AppColor.mutedForeground)
-                if !user.city.isEmpty {
-                    Text(user.city)
-                        .font(.system(size: AppTypography.footnote))
-                        .foregroundColor(AppColor.textFaint)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.textFaint)
-        }
-        .padding(.horizontal, AppDimens.spacingXL)
-        .padding(.vertical, AppDimens.spacingMD)
-        .contentShape(Rectangle())
+        EmptyStateView(systemImage: "person.2", text: loc.strings.followEmpty)
     }
 }

@@ -16,6 +16,14 @@ enum AppColor {
     static let secondary = Color(hex: "#7C3AED") // purple (verified badge)
     static let mutedForeground = Color(hex: "#6B6760")
     static let textFaint = Color(hex: "#9E9A94")
+    /// The single, app-wide placeholder-text color for input fields. Reuses the
+    /// `mutedForeground` value (#6B6760), which clears WCAG AA (~4.5–4.9:1 on
+    /// the surface/background/page field fills) — unlike the old plain
+    /// `TextField` system default (~1.4:1) and the old `TextEditor` overlays'
+    /// `textFaint` (~2.4:1), both of which fail AA and were unreadable. Declared
+    /// as its own semantic token (rather than reusing `mutedForeground` at call
+    /// sites) so the one place that owns "placeholder color" is explicit.
+    static let placeholder = Color(hex: "#6B6760")
     static let border = Color(hex: "#E8E4DE")
     static let hairline = Color(hex: "#F0EDE8")
     static let navInactive = Color(hex: "#9E9A94")
@@ -460,6 +468,16 @@ enum FeedData {
     /// on your own profile and suppress self author-taps in the feed/comments.
     static func currentUserId() -> String {
         FeedBridge.shared.currentUserId()
+    }
+
+    /// Whether `spotId` is a SAVEABLE spot id — i.e. a canonical uuid that could
+    /// be a legal `collection_spots.spot_id`. Flat Bool, synchronous. Reuses the
+    /// SHARED uuid validator (single source of truth) so the collection picker's
+    /// "this spot can't be saved yet" note matches exactly the ids the shared
+    /// `CollectionRepository.addSpot` guard rejects as a no-op (a demo/
+    /// offline-seed or not-yet-persisted local spot with a non-uuid id).
+    static func isSavableSpotId(spotId: String) -> Bool {
+        FeedBridge.shared.isSavableSpotId(spotId: spotId)
     }
 
     /// Follow `targetId` through the shared follow seam (optimistic + best-effort

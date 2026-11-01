@@ -115,53 +115,29 @@ struct ReportSheetView: View {
     // MARK: - Details editor (optional)
 
     private var detailsEditor: some View {
-        ZStack(alignment: .topLeading) {
-            if details.isEmpty {
-                Text(loc.strings.reportDetailsPlaceholder)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.textFaint)
-                    .padding(.horizontal, AppDimens.spacingMD)
-                    .padding(.vertical, AppDimens.spacingMD)
-                    .allowsHitTesting(false)
-            }
-            TextEditor(text: $details)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.foreground)
-                .scrollContentBackground(.hidden)
-                .padding(.horizontal, AppDimens.spacingSM)
-                .padding(.vertical, AppDimens.spacingSM)
-                .frame(minHeight: 88)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                .fill(AppColor.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
+        AppTextEditorField(
+            placeholder: loc.strings.reportDetailsPlaceholder,
+            text: $details,
+            minHeight: 88
         )
     }
 
     // MARK: - Submit button (red, disabled until a reason is chosen)
 
     private var submitButton: some View {
-        Button(action: {
-            // No-op for now (real reporting logic added later). Just dismiss.
-            close()
-        }) {
-            Text(loc.strings.reportSubmit)
-                .font(.system(size: AppTypography.body, weight: .semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppDimens.spacingLG)
-                .foregroundColor(.white)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .fill(AppColor.destructive)
-                )
-        }
-        .buttonStyle(.plain)
-        .opacity(selectedReasonKey == nil ? 0.5 : 1.0)
-        .disabled(selectedReasonKey == nil)
+        // Shared destructive button. Its previously taller `spacingLG` padding
+        // is unified onto the standard height; the enabled logic
+        // (a reason must be chosen) + the ONE disabled convention stay via
+        // `isEnabled`.
+        AppButton(
+            label: loc.strings.reportSubmit,
+            style: .destructive,
+            isEnabled: selectedReasonKey != nil,
+            action: {
+                // No-op for now (real reporting logic added later). Just dismiss.
+                close()
+            }
+        )
     }
 }
 

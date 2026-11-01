@@ -128,12 +128,12 @@ struct ProfileEditView: View {
         VStack(alignment: .leading, spacing: AppDimens.spacingXL) {
             bannerRow
             avatarRow
-            EditField(label: loc.strings.fieldName) {
-                textField($name)
+            LabeledField(label: loc.strings.fieldName) {
+                AppTextField(placeholder: "", text: $name)
             }
             bioField
-            EditField(label: loc.strings.fieldCity) {
-                textField($city)
+            LabeledField(label: loc.strings.fieldCity) {
+                AppTextField(placeholder: "", text: $city)
             }
             privateProfileRow
             SheetActionButton(
@@ -206,33 +206,11 @@ struct ProfileEditView: View {
         }
     }
 
-    /// Bio editor with the CreatePostView placeholder-overlay pattern.
+    /// Bio editor — the shared multi-line editor field with a readable
+    /// placeholder (slice B1), keeping the previous `minHeight: 90`.
     private var bioField: some View {
-        EditField(label: loc.strings.fieldBio) {
-            ZStack(alignment: .topLeading) {
-                if bio.isEmpty {
-                    Text(loc.strings.bioPlaceholder)
-                        .font(.system(size: AppTypography.body))
-                        .foregroundColor(AppColor.textFaint)
-                        .padding(.horizontal, AppDimens.spacingLG)
-                        .padding(.vertical, AppDimens.spacingMD)
-                }
-                TextEditor(text: $bio)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.foreground)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, AppDimens.spacingMD)
-                    .padding(.vertical, AppDimens.spacingSM)
-                    .frame(minHeight: 90)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
+        LabeledField(label: loc.strings.fieldBio) {
+            AppTextEditorField(placeholder: loc.strings.bioPlaceholder, text: $bio, minHeight: 90)
         }
     }
 
@@ -297,50 +275,26 @@ struct ProfileEditView: View {
     /// Log-out button: bordered with destructive-colored text. Wired to the
     /// shared session; signing out flips the auth gate back to the login flow.
     private var logoutButton: some View {
-        Button(action: { session.signOut() }) {
-            HStack(spacing: AppDimens.spacingSM) {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Text(loc.strings.logout)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingMD)
-            .padding(.horizontal, AppDimens.spacingLG)
-            .foregroundColor(AppColor.destructive)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
-        }
-        .buttonStyle(.plain)
+        // Shared `.destructiveQuiet` button (surface fill + destructive text +
+        // border) with its leading icon. Full-width, so it centers like the
+        // other buttons; wired to the session sign-out.
+        AppButton(
+            label: loc.strings.logout,
+            style: .destructiveQuiet,
+            systemImage: "rectangle.portrait.and.arrow.right",
+            action: { session.signOut() }
+        )
     }
 
     /// Delete-account button: destructive-tinted filled button. No-op.
     private var deleteAccountButton: some View {
-        Button(action: {}) {
-            HStack(spacing: AppDimens.spacingSM) {
-                Image(systemName: "trash")
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Text(loc.strings.deleteAccount)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingMD)
-            .padding(.horizontal, AppDimens.spacingLG)
-            .foregroundColor(.white)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.destructive)
-            )
-        }
-        .buttonStyle(.plain)
+        // Shared `.destructive` (filled) button with its leading trash icon.
+        AppButton(
+            label: loc.strings.deleteAccount,
+            style: .destructive,
+            systemImage: "trash",
+            action: {}
+        )
     }
 
     // MARK: Konto tab
@@ -366,14 +320,7 @@ struct ProfileEditView: View {
                 .font(.system(size: AppTypography.footnote))
                 .foregroundColor(AppColor.mutedForeground)
 
-            fieldSurface {
-                TextField(loc.strings.newEmailPlaceholder, text: $newEmail)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.foreground)
-                    .keyboardType(.emailAddress)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-            }
+            AppTextField(placeholder: loc.strings.newEmailPlaceholder, text: $newEmail, isEmail: true)
 
             SheetActionButton(
                 icon: "envelope",
@@ -390,16 +337,8 @@ struct ProfileEditView: View {
                 .font(.system(size: AppTypography.body, weight: .semibold))
                 .foregroundColor(AppColor.foreground)
 
-            fieldSurface {
-                SecureField(loc.strings.newPasswordPlaceholder, text: $newPassword)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.foreground)
-            }
-            fieldSurface {
-                SecureField(loc.strings.confirmPasswordPlaceholder, text: $confirmPassword)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.foreground)
-            }
+            AppSecureField(placeholder: loc.strings.newPasswordPlaceholder, text: $newPassword)
+            AppSecureField(placeholder: loc.strings.confirmPasswordPlaceholder, text: $confirmPassword)
 
             SheetActionButton(
                 icon: "lock",
@@ -426,48 +365,4 @@ struct ProfileEditView: View {
         }
     }
 
-    // MARK: Small local helpers
-
-    /// A single-line text field bound to [binding] with the standard surface
-    /// styling.
-    private func textField(_ binding: Binding<String>) -> some View {
-        fieldSurface {
-            TextField("", text: binding)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.foreground)
-        }
-    }
-
-    /// Wraps [content] in the app's standard surface + border field chrome
-    /// (same look as CreatePostView's search field).
-    private func fieldSurface<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content()
-            .padding(.horizontal, AppDimens.spacingMD)
-            .padding(.vertical, AppDimens.spacingMD)
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-            )
-    }
-}
-
-// MARK: - Private subviews
-
-/// A labeled field wrapper: a semibold caption above arbitrary field content.
-private struct EditField<Content: View>: View {
-    let label: String
-    @ViewBuilder let content: () -> Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(label)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
-            content()
-        }
-    }
 }

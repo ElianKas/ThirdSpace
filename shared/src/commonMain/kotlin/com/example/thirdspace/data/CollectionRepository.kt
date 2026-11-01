@@ -308,6 +308,20 @@ class CollectionRepository internal constructor(
             onResult(false)
             return
         }
+        // GUARD: a spotId that is not a canonical uuid can NEVER be a legal
+        // `collection_spots.spot_id` (that column is a Postgres `uuid` FK to
+        // `public.spots`). Sending a non-uuid id — e.g. a SampleData offline
+        // SEED spot, or any not-yet-persisted local spot — triggers a Postgres
+        // `22P02` "invalid input syntax for type uuid" 400 (the reported crash,
+        // e.g. "spot-bonanza"). Reject it as a NO-OP reporting false WITHOUT
+        // mutating the membership / spotCount cache and WITHOUT any remote call,
+        // so the bad request never leaves the device. (The uuid shape is
+        // necessary but not sufficient — a valid-shaped id that isn't a DB row
+        // still fails the FK remotely; that path is blocked-until-session.)
+        if (!Uuid.isValid(spotId)) {
+            onResult(false)
+            return
+        }
         // No-op if already saved (avoids a double count bump).
         if (isSpotInCollection(collectionId, spotId)) {
             onResult(false)

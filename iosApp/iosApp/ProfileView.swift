@@ -290,22 +290,14 @@ struct ProfileView: View {
     /// soft-fill bordered look is unchanged from before; `.buttonStyle(.plain)`
     /// keeps it from rendering as a default tappable link.
     private var editButton: some View {
+        // A NavigationLink (so it PUSHES the edit sub-page) wearing the shared
+        // `.soft` button look via `AppButtonLabel` — NOT a nested `Button`, so
+        // the push still works. Styling is now unified with the follow /
+        // create-collection buttons.
         NavigationLink {
             ProfileEditView()
         } label: {
-            Text(loc.strings.profileEdit)
-                .font(.system(size: AppTypography.body, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, AppDimens.spacingMD)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
-                        .fill(AppColor.page)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD)
-                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-                )
+            AppButtonLabel(label: loc.strings.profileEdit, style: .soft)
         }
         .buttonStyle(.plain)
     }
@@ -365,7 +357,7 @@ struct ProfileView: View {
     @ViewBuilder
     private var postsContent: some View {
         if posts.isEmpty {
-            emptyState(loc.strings.profileEmptyPosts)
+            emptyState("doc.text", loc.strings.profileEmptyPosts)
         } else {
             LazyVStack(spacing: 0) {
                 ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
@@ -384,15 +376,19 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var spotsContent: some View {
-        // The user's OWN spots (Phase 4), mapped to the lightweight row model so
-        // the existing `ProfileSpotRow` look is unchanged. No VoteControl in V1.
+        // The user's OWN spots (Phase 4), mapped to the lightweight `ProfileSpot`
+        // row model and rendered via the shared `AppListRow`. No VoteControl in V1.
         let rows = spots.map(ProfileSpot.init(spot:))
         if rows.isEmpty {
-            emptyState(loc.strings.profileEmptySpots)
+            emptyState("mappin", loc.strings.profileEmptySpots)
         } else {
             LazyVStack(spacing: 0) {
                 ForEach(rows) { spot in
-                    ProfileSpotRow(spot: spot)
+                    AppListRow(
+                        leading: .swatch(colorHex: spot.colorHex),
+                        title: spot.name,
+                        subtitle: "\(spot.category) · \(spot.neighborhood)"
+                    )
                     Rectangle()
                         .fill(AppColor.hairline)
                         .frame(height: AppDimens.hairline)
@@ -421,7 +417,7 @@ struct ProfileView: View {
                 .padding(.top, AppDimens.spacingSM)
 
             if collectionsStore.collections.isEmpty {
-                emptyState(loc.strings.emptyCollections)
+                emptyState("folder", loc.strings.emptyCollections)
             } else {
                 LazyVStack(spacing: 0) {
                     ForEach(collectionsStore.collections) { collection in
@@ -431,7 +427,12 @@ struct ProfileView: View {
                                 collectionName: collection.name
                             )
                         } label: {
-                            CollectionRow(collection: collection)
+                            AppListRow(
+                                leading: .none,
+                                title: collection.name,
+                                subtitle: loc.strings.collectionSpotCount(count: Int32(collection.spotCount)),
+                                trailing: .chevron
+                            )
                         }
                         .buttonStyle(.plain)
 
@@ -451,33 +452,21 @@ struct ProfileView: View {
     /// (tokens only); on success the field is cleared.
     private var createCollectionRow: some View {
         HStack(spacing: AppDimens.spacingSM) {
-            TextField(loc.strings.collectionNamePlaceholder, text: $newCollectionName)
+            AppTextField(placeholder: loc.strings.collectionNamePlaceholder, text: $newCollectionName)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
-                .padding(.horizontal, AppDimens.spacingMD)
-                .frame(height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .fill(AppColor.surface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-                )
 
-            Button(action: createCollection) {
-                Text(loc.strings.createCollection)
-                    .font(.system(size: AppTypography.footnote, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, AppDimens.spacingLG)
-                    .frame(height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                            .fill(canCreateCollection ? AppColor.brand : AppColor.mutedForeground)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!canCreateCollection)
+            // Shared primary button (hugging, not full-width) — the old
+            // fixed `height: 44` + fill-swap-to-`mutedForeground` drift is gone;
+            // it now matches the field height via the standard vertical padding
+            // and dims via the ONE disabled convention when `!canCreateCollection`.
+            AppButton(
+                label: loc.strings.createCollection,
+                style: .primary,
+                fullWidth: false,
+                isEnabled: canCreateCollection,
+                action: createCollection
+            )
         }
     }
 
@@ -501,12 +490,12 @@ struct ProfileView: View {
         }
     }
 
-    private func emptyState(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: AppTypography.body))
-            .foregroundColor(AppColor.mutedForeground)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, AppDimens.spacingXXL)
+    /// A thin wrapper over the shared `EmptyStateView` for the three profile
+    /// tabs (posts/spots/collections). Each call site passes its own coherent SF
+    /// Symbol so all empty states match the icon+muted-text look used elsewhere
+    /// (previously these were text-only, the fourth inconsistent variant).
+    private func emptyState(_ systemImage: String, _ text: String) -> some View {
+        EmptyStateView(systemImage: systemImage, text: text)
     }
 }
 
@@ -550,60 +539,4 @@ private struct ProfileSpot: Identifiable {
     }
 }
 
-/// A simple spot row for the profile Spots tab: color swatch + name + meta.
-private struct ProfileSpotRow: View {
-    let spot: ProfileSpot
 
-    var body: some View {
-        HStack(spacing: AppDimens.spacingMD) {
-            RoundedRectangle(cornerRadius: AppDimens.radiusSM)
-                .fill(Color(hex: spot.colorHex))
-                .frame(width: 44, height: 44)
-
-            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
-                Text(spot.name)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                    .foregroundColor(AppColor.foreground)
-                Text("\(spot.category) · \(spot.neighborhood)")
-                    .font(.system(size: AppTypography.footnote))
-                    .foregroundColor(AppColor.mutedForeground)
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, AppDimens.spacingXL)
-        .padding(.vertical, AppDimens.spacingMD)
-    }
-}
-
-/// A single collection row for the profile Collections tab: name + localized
-/// spot count on the left, a trailing chevron (it pushes a detail page). Styled
-/// like `ProfileSpotRow` / the follow row (tokens only). The name is dynamic
-/// content (verbatim); the count comes through the localized
-/// `collectionSpotCount`.
-private struct CollectionRow: View {
-    @Environment(Localization.self) private var loc
-    let collection: UISpotCollection
-
-    var body: some View {
-        HStack(spacing: AppDimens.spacingMD) {
-            VStack(alignment: .leading, spacing: AppDimens.spacingXS) {
-                Text(collection.name)
-                    .font(.system(size: AppTypography.body, weight: .semibold))
-                    .foregroundColor(AppColor.foreground)
-                Text(loc.strings.collectionSpotCount(count: Int32(collection.spotCount)))
-                    .font(.system(size: AppTypography.footnote))
-                    .foregroundColor(AppColor.mutedForeground)
-            }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "chevron.right")
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.textFaint)
-        }
-        .padding(.horizontal, AppDimens.spacingXL)
-        .padding(.vertical, AppDimens.spacingMD)
-        .contentShape(Rectangle())
-    }
-}

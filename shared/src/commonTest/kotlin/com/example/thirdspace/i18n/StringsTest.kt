@@ -47,7 +47,7 @@ class StringsTest {
         s.collectionsTabTitle, s.newCollection, s.collectionNamePlaceholder,
         s.createCollection, s.saveToCollection, s.addToCollection,
         s.removeFromCollection, s.renameCollection, s.deleteCollection,
-        s.emptyCollections, s.emptyCollectionSpots,
+        s.emptyCollections, s.emptyCollectionSpots, s.collectionSpotNotSaveable,
         s.profileEditTitle, s.editTabProfile, s.editTabAccount,
         s.fieldName, s.fieldBio, s.fieldCity, s.bioPlaceholder,
         s.chooseBanner, s.remove, s.chooseAvatar,

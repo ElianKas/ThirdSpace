@@ -76,11 +76,14 @@ class SpotCategoryTest {
     fun repositoryReturnsSeededSpots() {
         val repo = InMemorySpotRepository()
         val spots = repo.getSpots()
-        // Seeded from the six distinct sample-feed spots.
+        // Seeded from the six distinct sample-feed spots. Assert by NAME (not a
+        // hardcoded id literal): the seed spot ids are now canonical uuids (so
+        // they are never a `22P02` foot-gun when saved to a collection), which
+        // intentionally are not asserted verbatim here.
         assertEquals(6, spots.size)
-        assertTrue(spots.any { it.id == "spot-prater" })
+        assertTrue(spots.any { it.name == "Prater Garten" })
         // Seeded spots carry real coordinates.
-        val prater = spots.first { it.id == "spot-prater" }
+        val prater = spots.first { it.name == "Prater Garten" }
         assertEquals(52.5403, prater.lat)
         assertEquals(13.4120, prater.lng)
     }

@@ -39,6 +39,15 @@ struct CollectionPickerSheetView: View {
     /// The spot being assigned/unassigned. Flat String id crossing nothing else.
     let spotId: String
 
+    /// Whether this spot can actually be saved — i.e. its id is a server uuid.
+    /// A demo/offline-seed spot (or any not-yet-persisted local spot) has a
+    /// non-uuid id, which the shared `CollectionRepository.addSpot` guard
+    /// rejects as a no-op (it could never be a legal `collection_spots.spot_id`
+    /// uuid FK). We mirror that shared rule via the flat
+    /// `FeedData.isSavableSpotId(spotId:)` helper (single source of truth) so
+    /// the picker can explain why, rather than letting a tap silently fail.
+    private var isSavable: Bool { FeedData.isSavableSpotId(spotId: spotId) }
+
     /// Inline new-collection name field.
     @State private var newName = ""
 
@@ -49,6 +58,9 @@ struct CollectionPickerSheetView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppDimens.spacingLG) {
                 header
+                if !isSavable {
+                    notSaveableNote
+                }
                 createRow
                 if store.collections.isEmpty {
                     emptyState
@@ -75,6 +87,31 @@ struct CollectionPickerSheetView: View {
             .foregroundColor(AppColor.foreground)
     }
 
+    // MARK: Not-saveable note
+
+    /// Shown when the spot's id is not a server uuid (a demo/offline-seed or a
+    /// not-yet-persisted local spot). Explains why saving is unavailable instead
+    /// of letting a tap silently no-op. The collection rows + create row are
+    /// disabled while this is shown.
+    private var notSaveableNote: some View {
+        HStack(spacing: AppDimens.spacingSM) {
+            Image(systemName: "info.circle")
+                .font(.system(size: AppTypography.body))
+                .foregroundColor(AppColor.mutedForeground)
+            Text(loc.strings.collectionSpotNotSaveable)
+                .font(.system(size: AppTypography.footnote))
+                .foregroundColor(AppColor.mutedForeground)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AppDimens.spacingMD)
+        .padding(.vertical, AppDimens.spacingSM)
+        .background(
+            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
+                .fill(AppColor.surface)
+        )
+    }
+
     // MARK: Inline create row
 
     /// A text field (`collectionNamePlaceholder`) + a create button
@@ -82,33 +119,21 @@ struct CollectionPickerSheetView: View {
     /// create is in flight. On success the field is cleared.
     private var createRow: some View {
         HStack(spacing: AppDimens.spacingSM) {
-            TextField(loc.strings.collectionNamePlaceholder, text: $newName)
+            AppTextField(placeholder: loc.strings.collectionNamePlaceholder, text: $newName)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
-                .padding(.horizontal, AppDimens.spacingMD)
-                .frame(height: 44)
-                .background(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .fill(AppColor.surface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                        .stroke(AppColor.border, lineWidth: AppDimens.hairline)
-                )
 
-            Button(action: create) {
-                Text(loc.strings.createCollection)
-                    .font(.system(size: AppTypography.footnote, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, AppDimens.spacingLG)
-                    .frame(height: 44)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                            .fill(canCreate ? AppColor.brand : AppColor.mutedForeground)
-                    )
-            }
-            .buttonStyle(.plain)
-            .disabled(!canCreate)
+            // Shared primary button (hugging, not full-width) — the old
+            // fixed `height: 44` + fill-swap-to-`mutedForeground` drift is gone;
+            // it now matches the field height via the standard vertical padding
+            // and dims via the ONE disabled convention when `!canCreate`.
+            AppButton(
+                label: loc.strings.createCollection,
+                style: .primary,
+                fullWidth: false,
+                isEnabled: canCreate,
+                action: create
+            )
         }
     }
 
@@ -176,6 +201,11 @@ struct CollectionPickerSheetView: View {
             )
         }
         .buttonStyle(.plain)
+        // A non-saveable spot (non-uuid id) can't be added to a collection — the
+        // shared guard would reject it — so disable + dim the toggle and let the
+        // `notSaveableNote` explain why.
+        .disabled(!isSavable)
+        .opacity(isSavable ? 1 : 0.5)
     }
 
     /// Toggle the spot's membership in `collection` — optimistic; the observable
@@ -191,10 +221,6 @@ struct CollectionPickerSheetView: View {
     // MARK: Empty state
 
     private var emptyState: some View {
-        Text(loc.strings.emptyCollections)
-            .font(.system(size: AppTypography.body))
-            .foregroundColor(AppColor.mutedForeground)
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.vertical, AppDimens.spacingXL)
+        EmptyStateView(systemImage: "folder", text: loc.strings.emptyCollections)
     }
 }

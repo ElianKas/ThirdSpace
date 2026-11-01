@@ -89,6 +89,12 @@ class CollectionRepositoryTest {
 
     private val scope = CoroutineScope(Dispatchers.Unconfined)
 
+    // A canonical-shaped uuid spot id: addSpot's uuid-shape guard ACCEPTS it, so
+    // the membership/spotCount/push assertions exercise the real path (a
+    // non-uuid id would now be rejected as a no-op — see the dedicated guard
+    // test below).
+    private val uuidSpot = "aaaaaaaa-aaaa-4aaa-8aaa-000000000001"
+
     private fun spot(id: String) = Spot(
         id = id,
         name = "Spot $id",
@@ -209,16 +215,16 @@ class CollectionRepositoryTest {
         r.refreshCollections()
 
         var result: Boolean? = null
-        r.addSpot("c1", "s1") { result = it }
+        r.addSpot("c1", uuidSpot) { result = it }
         assertEquals(true, result)
-        assertTrue(r.isSpotInCollection("c1", "s1"))
-        assertEquals(listOf("c1"), r.collectionsContaining("s1"))
+        assertTrue(r.isSpotInCollection("c1", uuidSpot))
+        assertEquals(listOf("c1"), r.collectionsContaining(uuidSpot))
 
         // removeSpot reverses membership.
-        r.removeSpot("c1", "s1") { result = it }
+        r.removeSpot("c1", uuidSpot) { result = it }
         assertEquals(true, result)
-        assertFalse(r.isSpotInCollection("c1", "s1"))
-        assertEquals(emptyList(), r.collectionsContaining("s1"))
+        assertFalse(r.isSpotInCollection("c1", uuidSpot))
+        assertEquals(emptyList(), r.collectionsContaining(uuidSpot))
         assertEquals(1, remote.addCount)
         assertEquals(1, remote.removeCount)
     }
@@ -249,10 +255,10 @@ class CollectionRepositoryTest {
         )
         r.refreshCollections()
         assertEquals(0, r.collections().first { it.id == "c1" }.spotCount)
-        r.addSpot("c1", "s1") { }
+        r.addSpot("c1", uuidSpot) { }
         // Optimistic bump observable while the remote add is still suspended.
         assertEquals(1, r.collections().first { it.id == "c1" }.spotCount)
-        assertTrue(r.isSpotInCollection("c1", "s1"))
+        assertTrue(r.isSpotInCollection("c1", uuidSpot))
         gate.complete(Unit)
     }
 
@@ -260,12 +266,60 @@ class CollectionRepositoryTest {
     fun addSpotAlreadySavedIsNoOpReportsFalse() {
         val remote = FakeCollectionRemote(available = true)
         val r = repo(remote)
-        r.addSpot("c1", "s1") { }
+        r.addSpot("c1", uuidSpot) { }
         assertEquals(1, remote.addCount)
         var result: Boolean? = null
-        r.addSpot("c1", "s1") { result = it }
+        r.addSpot("c1", uuidSpot) { result = it }
         assertEquals(false, result)
         assertEquals(1, remote.addCount) // not called again
+    }
+
+    // --- addSpot uuid-shape GUARD: a non-uuid spotId is rejected as a no-op ---
+
+    @Test
+    fun addSpotWithNonUuidSpotIdIsNoOpReportsFalseAndNeverCallsRemote() {
+        // The reported crash: a SampleData offline-seed spot id like
+        // "spot-bonanza" is NOT a canonical uuid, so it can never be a legal
+        // `collection_spots.spot_id` (a Postgres uuid FK). The guard must reject
+        // it BEFORE any optimistic mutation or remote call, so the 22P02 400
+        // never leaves the device.
+        val remote = FakeCollectionRemote(available = true)
+        var changedCount = 0
+        val r = repo(remote, onChanged = { changedCount++ })
+
+        var result: Boolean? = null
+        r.addSpot("c1", "spot-bonanza") { result = it }
+
+        assertEquals(false, result)
+        // No membership mutation, no spotCount bump, no onChanged fire.
+        assertFalse(r.isSpotInCollection("c1", "spot-bonanza"))
+        assertEquals(emptyList(), r.collectionsContaining("spot-bonanza"))
+        assertEquals(0, changedCount)
+        // CRITICAL: the remote add was never attempted.
+        assertEquals(0, remote.addCount)
+    }
+
+    @Test
+    fun addSpotWithValidUuidSpotIdStillWorks() {
+        // The companion to the guard test: a canonical uuid id still takes the
+        // real optimistic + remote-push path unchanged.
+        val remote = FakeCollectionRemote(available = true)
+        val r = repo(remote)
+        var result: Boolean? = null
+        r.addSpot("c1", uuidSpot) { result = it }
+        assertEquals(true, result)
+        assertTrue(r.isSpotInCollection("c1", uuidSpot))
+        assertEquals(1, remote.addCount)
+    }
+
+    @Test
+    fun addSpotWithBlankSpotIdStaysNoOpFalse() {
+        val remote = FakeCollectionRemote(available = true)
+        val r = repo(remote)
+        var result: Boolean? = null
+        r.addSpot("c1", "") { result = it }
+        assertEquals(false, result)
+        assertEquals(0, remote.addCount)
     }
 
     // --- refreshes populate from the fake; EMPTY + no fetch before refresh ---
@@ -354,11 +408,14 @@ class CollectionRepositoryTest {
 
     @Test
     fun addSpotWhenUnavailableKeepsOptimisticButReportsFalse() {
+        // Uses a VALID uuid so the uuid-shape guard passes and the offline
+        // branch (keep optimistic, report false, no remote call) is what's
+        // being exercised — not the guard.
         val remote = FakeCollectionRemote(available = false)
         val r = repo(remote, authed = true)
         var result: Boolean? = null
-        r.addSpot("c1", "s1") { result = it }
-        assertTrue(r.isSpotInCollection("c1", "s1")) // optimistic kept
+        r.addSpot("c1", uuidSpot) { result = it }
+        assertTrue(r.isSpotInCollection("c1", uuidSpot)) // optimistic kept
         assertEquals(false, result)
         assertEquals(0, remote.addCount)
     }

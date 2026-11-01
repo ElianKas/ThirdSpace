@@ -99,9 +99,7 @@ struct CreatePostView: View {
 
     private var spotSection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(loc.strings.createSpotLabel)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.createSpotLabel)
 
             if let selectedSpot {
                 selectedSpotRow(selectedSpot)
@@ -136,23 +134,12 @@ struct CreatePostView: View {
     }
 
     private var searchField: some View {
-        HStack(spacing: AppDimens.spacingSM) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.textFaint)
-            TextField(loc.strings.createSpotSearch, text: $searchText)
-                .font(.system(size: AppTypography.body))
-                .foregroundColor(AppColor.foreground)
-        }
-        .padding(.horizontal, AppDimens.spacingMD)
-        .padding(.vertical, AppDimens.spacingMD)
-        .background(
-            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                .fill(AppColor.surface)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                .stroke(AppColor.border, lineWidth: AppDimens.hairline)
+        // Shared single-line field with the leading magnifyingglass preserved
+        // via the `leadingSystemImage` param (slice B1); readable placeholder.
+        AppTextField(
+            placeholder: loc.strings.createSpotSearch,
+            text: $searchText,
+            leadingSystemImage: "magnifyingglass"
         )
     }
 
@@ -213,33 +200,12 @@ struct CreatePostView: View {
 
     private var captionSection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(loc.strings.createTextLabel)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.createTextLabel)
 
-            ZStack(alignment: .topLeading) {
-                if caption.isEmpty {
-                    Text(loc.strings.createCaptionPlaceholder)
-                        .font(.system(size: AppTypography.body))
-                        .foregroundColor(AppColor.textFaint)
-                        .padding(.horizontal, AppDimens.spacingLG)
-                        .padding(.vertical, AppDimens.spacingMD)
-                }
-                TextEditor(text: $caption)
-                    .font(.system(size: AppTypography.body))
-                    .foregroundColor(AppColor.foreground)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, AppDimens.spacingMD)
-                    .padding(.vertical, AppDimens.spacingSM)
-                    .frame(minHeight: 100)
-            }
-            .background(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .fill(AppColor.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: AppDimens.radiusMD, style: .continuous)
-                    .stroke(AppColor.border, lineWidth: AppDimens.hairline)
+            AppTextEditorField(
+                placeholder: loc.strings.createCaptionPlaceholder,
+                text: $caption,
+                minHeight: 100
             )
         }
     }
@@ -279,9 +245,7 @@ struct CreatePostView: View {
 
     private var visibilitySection: some View {
         VStack(alignment: .leading, spacing: AppDimens.spacingMD) {
-            Text(loc.strings.createVisibility)
-                .font(.system(size: AppTypography.footnote, weight: .semibold))
-                .foregroundColor(AppColor.foreground)
+            FieldLabel(loc.strings.createVisibility)
 
             HStack(spacing: AppDimens.spacingMD) {
                 visibilityOption(.publicEveryone, icon: "globe", label: loc.strings.visibilityPublic)

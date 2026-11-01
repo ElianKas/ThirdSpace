@@ -131,9 +131,11 @@ struct MapBaseView: View {
         // Top controls (search bar + filter chips) placed BELOW the real top
         // safe-area inset via `.topChrome` so they clear the status bar /
         // Dynamic Island, while the `MapboxMapView` below uses `.ignoresSafeArea()`
-        // to keep the map borderless to the top. The gap uses the shared
-        // `AppLayout.topChromeSpacing` token (no fixed 12pt magic number).
-        .topChrome(alignment: .leading) {
+        // to keep the map borderless to the top. The map uses the larger
+        // `AppLayout.mapTopChromeSpacing` token so the search + filter chips
+        // sit lower, clear of the Dynamic Island; other `topChrome` callers
+        // (e.g. the Profile language pill) keep the default `topChromeSpacing`.
+        .topChrome(alignment: .leading, spacing: AppLayout.mapTopChromeSpacing) {
             VStack(spacing: AppDimens.spacingSM) {
                 searchBar
                 filterChips
@@ -279,14 +281,13 @@ struct MapBaseView: View {
     // MARK: Bottom-right FAB
 
     private var fab: some View {
-        Button(action: startCreateAtCenter) {
-            Image(systemName: "plus")
-                .font(.system(size: AppTypography.titleLarge, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 52, height: 52)
-                .background(Circle().fill(AppColor.brand))
-        }
-        .buttonStyle(.plain)
+        // Shared icon button — a brand circle (size 52).
+        AppIconButton(
+            systemImage: "plus",
+            shape: .circle,
+            size: 52,
+            action: startCreateAtCenter
+        )
     }
 
     /// FAB path: start a create-spot flow at the CURRENT map center. The center
@@ -306,21 +307,16 @@ struct MapBaseView: View {
 /// Native replication of the Compose `FilterChip`: a pill with a label. Active
 /// chips use the brand fill with white text; inactive chips use a frosted
 /// surface with a hairline border.
+///
+/// As of slice B3 this is a THIN WRAPPER over the shared
+/// `AppChip(.selectable(active:))` (brand accent), so its MapBaseView call sites
+/// keep working while the look is unified with the AddSpot category pill. The
+/// public name/signature are unchanged.
 struct FilterChipView: View {
     let label: String
     let active: Bool
 
     var body: some View {
-        Text(label)
-            .font(.system(size: AppTypography.footnote, weight: .medium))
-            .foregroundColor(active ? .white : AppColor.foreground)
-            .padding(.horizontal, AppDimens.spacingLG)
-            .frame(height: 30)
-            .background(
-                Capsule().fill(active ? AppColor.brand : AppColor.frost)
-            )
-            .overlay(
-                Capsule().stroke(active ? Color.clear : AppColor.border, lineWidth: AppDimens.hairline)
-            )
+        AppChip(label: label, style: .selectable(active: active))
     }
 }

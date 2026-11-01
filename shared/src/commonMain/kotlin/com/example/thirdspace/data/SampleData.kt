@@ -7,7 +7,7 @@ package com.example.thirdspace.data
 object SampleData {
 
     private val spotPrater = Spot(
-        id = "spot-prater",
+        id = "11111111-1111-4111-8111-000000000001",
         name = "Prater Garten",
         category = "Bar",
         neighborhood = "Prenzlauer Berg",
@@ -19,7 +19,7 @@ object SampleData {
     )
 
     private val spotVolkspark = Spot(
-        id = "spot-volkspark",
+        id = "11111111-1111-4111-8111-000000000002",
         name = "Volkspark Friedrichshain",
         category = "Park",
         neighborhood = "Friedrichshain",
@@ -31,7 +31,7 @@ object SampleData {
     )
 
     private val spotBonanza = Spot(
-        id = "spot-bonanza",
+        id = "11111111-1111-4111-8111-000000000003",
         name = "Bonanza Coffee",
         category = "Café",
         neighborhood = "Kreuzberg",
@@ -43,7 +43,7 @@ object SampleData {
     )
 
     private val spotKlunker = Spot(
-        id = "spot-klunker",
+        id = "11111111-1111-4111-8111-000000000004",
         name = "Klunkerkranich",
         category = "Bar",
         neighborhood = "Neukölln",
@@ -55,7 +55,7 @@ object SampleData {
     )
 
     private val spotTempelhof = Spot(
-        id = "spot-tempelhof",
+        id = "11111111-1111-4111-8111-000000000005",
         name = "Tempelhofer Feld",
         category = "Park",
         neighborhood = "Tempelhof",
@@ -67,7 +67,7 @@ object SampleData {
     )
 
     private val spotCompanion = Spot(
-        id = "spot-companion",
+        id = "11111111-1111-4111-8111-000000000006",
         name = "Companion Coffee",
         category = "Café",
         neighborhood = "Mitte",
