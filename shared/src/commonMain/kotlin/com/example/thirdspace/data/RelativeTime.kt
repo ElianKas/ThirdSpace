@@ -148,4 +148,57 @@ object RelativeTime {
         val doe = yoe * 365 + yoe / 4 - yoe / 100 + doy          // [0, 146096]
         return era.toLong() * 146097 + doe - 719468
     }
+
+    /**
+     * German month names (1-indexed via [month] - 1), NON-translated dynamic
+     * content — consistent with the project's convention that the profile
+     * join label is not part of the i18n [com.example.thirdspace.i18n.Strings]
+     * layer (the dummy was "März 2024"). German is the app default; the label
+     * is the same regardless of the selected UI language, matching how spot
+     * categories / author names are not translated either.
+     */
+    private val GERMAN_MONTHS = arrayOf(
+        "Januar", "Februar", "März", "April", "Mai", "Juni",
+        "Juli", "August", "September", "Oktober", "November", "Dezember",
+    )
+
+    /**
+     * Format a `created_at` ISO-8601 string to a neutral, NON-translated
+     * "Monat Jahr" join label (e.g. "März 2024"), matching the old
+     * SampleData.profile dummy style. Reuses [parseIsoToEpochMillis] to get
+     * epoch millis, then derives the civil year/month via Howard Hinnant's
+     * `civil_from_days` inverse (dependency-free, no kotlinx-datetime).
+     *
+     * Returns "" for an empty/unparseable input (epoch 0 maps to a valid date,
+     * so an empty string is special-cased to "" rather than showing a 1970
+     * label). The caller (the profile mapping) treats "" as "unknown join
+     * date" and leaves the field blank.
+     */
+    fun formatMonthYear(iso: String): String {
+        if (iso.isBlank()) return ""
+        val epochMillis = parseIsoToEpochMillis(iso)
+        if (epochMillis == 0L) return ""
+        val (year, month) = civilFromDays(epochMillis / DAY)
+        val name = GERMAN_MONTHS.getOrNull(month - 1) ?: return ""
+        return "$name $year"
+    }
+
+    /**
+     * The (year, month) of a day count [z] since the Unix epoch. Howard
+     * Hinnant's `civil_from_days` inverse of [daysFromCivil] — exact and
+     * dependency-free. The day-of-month is intentionally not returned (the
+     * profile label only needs month + year). [month] is 1..12.
+     */
+    private fun civilFromDays(z: Long): Pair<Int, Int> {
+        val zz = z + 719468
+        val era = (if (zz >= 0) zz else zz - 146096) / 146097
+        val doe = zz - era * 146097                              // [0, 146096]
+        val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365 // [0, 399]
+        val y = yoe + era * 400
+        val doy = doe - (365 * yoe + yoe / 4 - yoe / 100)        // [0, 365]
+        val mp = (5 * doy + 2) / 153                             // [0, 11]
+        val month = (if (mp < 10) mp + 3 else mp - 9).toInt()    // [1, 12]
+        val year = (if (month <= 2) y + 1 else y).toInt()
+        return year to month
+    }
 }

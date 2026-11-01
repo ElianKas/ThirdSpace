@@ -28,8 +28,19 @@ struct ProfileView: View {
 
     @State private var selectedTab: ProfileTab = .posts
 
-    private let profile = FeedData.profile()
-    private let posts = FeedData.posts()
+    /// The current user's profile, from the shared offline-first store (the
+    /// real `profiles` row when logged in; a neutral non-dummy fallback
+    /// otherwise). Replaces the old `FeedData.profile()` SampleData snapshot.
+    @Environment(ProfileStore.self) private var profileStore
+    private var profile: UIProfile { profileStore.profile }
+
+    /// The current user's OWN posts / spots (Phase 4), from the shared
+    /// offline-first store (posts where `author_id == uid`; spots where
+    /// `owner_id == uid`). Replaces the old global-feed `FeedData.posts()` +
+    /// distinct-by-name derivation. Refreshed by the store's
+    /// `loadProfile`/`observeProfile` flow, so the tabs update with the profile.
+    private var posts: [UIPost] { profileStore.ownPosts }
+    private var spots: [UISpot] { profileStore.ownSpots }
 
     var body: some View {
         ScrollView {
@@ -303,14 +314,14 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var spotsContent: some View {
-        // Derive a distinct-by-name spot list from the posts (same approach as
-        // CreatePostView). No VoteControl in V1.
-        let spots = distinctSpots()
-        if spots.isEmpty {
+        // The user's OWN spots (Phase 4), mapped to the lightweight row model so
+        // the existing `ProfileSpotRow` look is unchanged. No VoteControl in V1.
+        let rows = spots.map(ProfileSpot.init(spot:))
+        if rows.isEmpty {
             emptyState(loc.strings.profileEmptySpots)
         } else {
             LazyVStack(spacing: 0) {
-                ForEach(spots) { spot in
+                ForEach(rows) { spot in
                     ProfileSpotRow(spot: spot)
                     Rectangle()
                         .fill(AppColor.hairline)
@@ -327,24 +338,6 @@ struct ProfileView: View {
             .foregroundColor(AppColor.mutedForeground)
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppDimens.spacingXXL)
-    }
-
-    /// Distinct spots derived from the feed posts, keyed by spot name.
-    private func distinctSpots() -> [ProfileSpot] {
-        var seen = Set<String>()
-        var result: [ProfileSpot] = []
-        for post in posts where !seen.contains(post.spotName) {
-            seen.insert(post.spotName)
-            result.append(
-                ProfileSpot(
-                    name: post.spotName,
-                    category: post.category,
-                    neighborhood: post.neighborhood,
-                    colorHex: post.colorHex
-                )
-            )
-        }
-        return result
     }
 }
 
@@ -369,13 +362,23 @@ private struct StatColumn: View {
     }
 }
 
-/// A lightweight spot descriptor derived from a feed post for the Spots tab.
+/// A lightweight spot descriptor for the profile Spots tab. As of Phase 4 it is
+/// built from the user's OWN `UISpot` (identity by the real spot `id`, so two
+/// spots with the same name stay distinct) rather than derived from feed posts.
 private struct ProfileSpot: Identifiable {
-    var id: String { name }
+    let id: String
     let name: String
     let category: String
     let neighborhood: String
     let colorHex: String
+
+    init(spot: UISpot) {
+        self.id = spot.id
+        self.name = spot.name
+        self.category = spot.category
+        self.neighborhood = spot.neighborhood
+        self.colorHex = spot.colorHex
+    }
 }
 
 /// A simple spot row for the profile Spots tab: color swatch + name + meta.

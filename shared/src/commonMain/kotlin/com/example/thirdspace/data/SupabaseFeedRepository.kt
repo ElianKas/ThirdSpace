@@ -91,6 +91,31 @@ internal data class PostVoteDto(
 )
 
 /**
+ * Pure [PostFeedDto] -> [FeedPost] derivation, exposed `internal` so it can be
+ * REUSED by every `post_feed` read path (the global feed via
+ * [SupabaseFeedRepository.fetchFeed] AND the profile's own-posts read via
+ * [SupabaseProfileRepository.fetchOwnPosts]) rather than duplicating the field
+ * map. `created_at` is parsed to epoch millis here so the rest of the app stays
+ * datetime-free; the epoch stays INSIDE the shared module.
+ */
+internal object PostFeedMapping {
+    /** Map one decoded `post_feed` row to the flat [FeedPost]. */
+    fun toFeedPost(dto: PostFeedDto): FeedPost = FeedPost(
+        id = dto.id,
+        authorName = dto.authorName,
+        spotName = dto.spotName,
+        category = dto.category,
+        neighborhood = dto.neighborhood,
+        verified = dto.verified,
+        text = dto.text,
+        createdAtEpoch = RelativeTime.parseIsoToEpochMillis(dto.createdAt),
+        score = dto.score,
+        commentCount = dto.commentCount,
+        myVote = dto.myVote,
+    )
+}
+
+/**
  * The remote feed source seam. An interface so [FeedRepository] /
  * [CommentRepository] can be unit-tested against a FAKE remote (no network),
  * while production uses the supabase-kt-backed [SupabaseFeedRepository]. All
@@ -164,21 +189,7 @@ internal class SupabaseFeedRepository : FeedRemoteSource {
         val rows = c.from("post_feed").select {
             order("created_at", Order.DESCENDING)
         }.decodeList<PostFeedDto>()
-        return rows.map { dto ->
-            FeedPost(
-                id = dto.id,
-                authorName = dto.authorName,
-                spotName = dto.spotName,
-                category = dto.category,
-                neighborhood = dto.neighborhood,
-                verified = dto.verified,
-                text = dto.text,
-                createdAtEpoch = RelativeTime.parseIsoToEpochMillis(dto.createdAt),
-                score = dto.score,
-                commentCount = dto.commentCount,
-                myVote = dto.myVote,
-            )
-        }
+        return rows.map { PostFeedMapping.toFeedPost(it) }
     }
 
     /**

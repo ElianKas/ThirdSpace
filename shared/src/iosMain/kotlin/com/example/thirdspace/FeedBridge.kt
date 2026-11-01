@@ -3,6 +3,8 @@ package com.example.thirdspace
 import com.example.thirdspace.data.AuthRepository
 import com.example.thirdspace.data.AuthResult
 import com.example.thirdspace.data.Feed
+import com.example.thirdspace.data.FeedPost
+import com.example.thirdspace.data.Profiles
 import com.example.thirdspace.data.RelativeTime
 import com.example.thirdspace.data.SampleData
 import com.example.thirdspace.data.Spot
@@ -616,23 +618,108 @@ object FeedBridge {
         AppLanguage.entries.map { IosLanguage(it.code, it.displayName) }
 
     /**
-     * Flat snapshot of the current user's own dummy profile, safe to consume
-     * from Swift. Dynamic content (name/username/city/bio/monthYear) is NOT
-     * localized; the "seit"/"since" prefix is applied Swift-side via IosStrings.
+     * Flat snapshot of the CURRENT user's own profile, safe to consume from
+     * Swift. Sourced from the shared offline-first [Profiles.repository] (a
+     * PURE cache read — [ProfileRepository.current]; no remote fetch here), NOT
+     * from SampleData.
+     *
+     * When the cached row is `null` (pre-fetch, offline, unconfigured, or
+     * pre-login) a NEUTRAL profile is returned instead of the old hardcoded
+     * dummy: empty strings + the current session email (when there is one) +
+     * zero counts. So the screen never shows "Elian Kasteleiner"; it shows a
+     * blank-but-safe state until the first [loadProfile] refresh populates the
+     * real row.
+     *
+     * [profile] still returns a NON-NULL flat [IosProfile]; no supabase /
+     * suspend / nullable type crosses the boundary. Dynamic content
+     * (name/username/city/bio/monthYear) is NOT localized; the "seit"/"since"
+     * prefix is applied Swift-side via IosStrings. spotCount/postCount are the
+     * REAL counts of the current user's own spots/posts (derived from the
+     * fetched own-content list sizes; see [Profiles]/[ownSpots]/[ownPosts]).
+     * followerCount/followingCount stay 0 (the social graph is deferred).
      */
-    fun profile(): IosProfile = SampleData.profile.let {
-        IosProfile(
-            it.name,
-            it.username,
-            it.city,
-            it.monthYear,
-            it.bio,
-            it.email,
-            it.spotCount,
-            it.postCount,
-            it.followerCount,
-            it.followingCount,
-        )
+    fun profile(): IosProfile {
+        val p = Profiles.repository.current()
+        return if (p != null) {
+            IosProfile(
+                p.name,
+                p.username,
+                p.city,
+                p.monthYear,
+                p.bio,
+                p.email,
+                p.spotCount,
+                p.postCount,
+                p.followerCount,
+                p.followingCount,
+            )
+        } else {
+            // Neutral, non-dummy fallback: blanks + the session email if any.
+            IosProfile(
+                name = "",
+                username = "",
+                city = "",
+                monthYear = "",
+                bio = "",
+                email = AuthRepository.currentUserEmail(),
+                spotCount = 0,
+                postCount = 0,
+                followerCount = 0,
+                followingCount = 0,
+            )
+        }
+    }
+
+    /**
+     * Ask the shared repository to refresh the current user's profile from the
+     * backend, invoking the flat [completion] on the MAIN THREAD once the
+     * refresh has been kicked off. FLAT: no args, plain closure; no
+     * suspend/supabase type crosses. Mirrors [loadFeed]/[refreshSpots].
+     *
+     * The refresh runs in the background inside the shared module (the
+     * ProfileRepository's scope). Reads ([profile]) are PURE cache reads and do
+     * NOT trigger a fetch, so this is the explicit pull path; Swift re-reads
+     * [profile] afterwards (and a live result also arrives via [observeProfile]).
+     */
+    fun loadProfile(completion: () -> Unit) {
+        Profiles.refresh()
+        onMain { completion() }
+    }
+
+    /**
+     * Observe profile-cache changes caused by a background remote refresh.
+     * [listener] is invoked (no args) on the MAIN THREAD whenever the shared
+     * cached profile changes, so a SwiftUI view can re-read [profile]. FLAT:
+     * no args, plain closure; no suspend/Flow/supabase type crosses. Mirrors
+     * [observeFeed]/[observeSpots].
+     */
+    fun observeProfile(listener: () -> Unit) {
+        Profiles.setChangeListener {
+            onMain { listener() }
+        }
+    }
+
+    /**
+     * EDIT/SAVE of the current user's profile (name/city/bio) through the shared
+     * [Profiles.updateProfile]: an OPTIMISTIC in-memory update + an [onChanged]
+     * (so observers re-read at once) + a best-effort background remote UPDATE of
+     * the own `profiles` row (RLS "update own"). The flat [completion] is
+     * invoked on the MAIN THREAD with the `Boolean` outcome once the remote push
+     * resolves. FLAT: String args + a Bool-arg closure; no suspend/supabase type
+     * crosses. Mirrors [vote]/[createPost] but carries the result back.
+     *
+     * OFFLINE / UNAUTH: there is NO durable profile write-queue (out of scope).
+     * The optimistic local change is kept for the session but [completion]
+     * reports `false` — no silent success. Swift re-reads [profile] in both the
+     * [observeProfile] callback (optimistic) and this completion (reconciled).
+     */
+    fun updateProfile(
+        name: String,
+        city: String,
+        bio: String,
+        completion: (Boolean) -> Unit,
+    ) {
+        Profiles.updateProfile(name, city, bio) { ok -> onMain { completion(ok) } }
     }
 
     /**
@@ -654,28 +741,47 @@ object FeedBridge {
      */
     fun posts(): List<IosPost> {
         val now = currentEpochMillis()
-        return Feed.posts.getPosts().map { post ->
-            IosPost(
-                id = post.id,
-                spotName = post.spotName,
-                category = post.category,
-                neighborhood = post.neighborhood,
-                verified = post.verified,
-                checkInCount = 0,
-                authorName = post.authorName,
-                dateLabel = RelativeTime.format(post.createdAtEpoch, now, currentLanguageCode),
-                text = post.text,
-                score = post.score,
-                voteState = when (post.myVote) {
-                    "UP" -> "UP"
-                    "DOWN" -> "DOWN"
-                    else -> "NONE"
-                },
-                commentCount = post.commentCount,
-                colorHex = SpotCategory.colorHexForLabel(post.category),
-            )
-        }
+        return Feed.posts.getPosts().map { iosPost(it, now) }
     }
+
+    /**
+     * The CURRENT user's OWN posts (Phase 4) for the profile's "meine Posts"
+     * tab, sourced from the shared offline-first [Profiles.repository] (a PURE
+     * cache read — [com.example.thirdspace.data.ProfileRepository.ownPosts]; no
+     * remote fetch here), mapped to the SAME flat [IosPost] shape [posts] uses
+     * (via the shared [iosPost] helper). Refreshed by the existing [loadProfile]
+     * / [observeProfile] flow — no new refresh hook needed.
+     */
+    fun ownPosts(): List<IosPost> {
+        val now = currentEpochMillis()
+        return Profiles.repository.ownPosts().map { iosPost(it, now) }
+    }
+
+    /**
+     * Map a shared [FeedPost] to the flat [IosPost] boundary shape, reused by
+     * both [posts] (the global feed) and [ownPosts] (the profile tab) so the
+     * mapping lives in ONE place. [now] is the reference epoch for the relative
+     * [IosPost.dateLabel].
+     */
+    private fun iosPost(post: FeedPost, now: Long): IosPost = IosPost(
+        id = post.id,
+        spotName = post.spotName,
+        category = post.category,
+        neighborhood = post.neighborhood,
+        verified = post.verified,
+        checkInCount = 0,
+        authorName = post.authorName,
+        dateLabel = RelativeTime.format(post.createdAtEpoch, now, currentLanguageCode),
+        text = post.text,
+        score = post.score,
+        voteState = when (post.myVote) {
+            "UP" -> "UP"
+            "DOWN" -> "DOWN"
+            else -> "NONE"
+        },
+        commentCount = post.commentCount,
+        colorHex = SpotCategory.colorHexForLabel(post.category),
+    )
 
     /**
      * All spots to render on the Mapbox map, sourced from the shared
@@ -683,19 +789,35 @@ object FeedBridge {
      * [IosSpot.colorHex] is the category's marker color from the shared
      * [SpotCategory] — Swift does not hardcode category colors.
      */
-    fun spots(): List<IosSpot> = Spots.repository.getSpots().map { spot ->
-        IosSpot(
-            id = spot.id,
-            name = spot.name,
-            category = spot.category,
-            neighborhood = spot.neighborhood,
-            verified = spot.verified,
-            checkInCount = spot.checkInCount,
-            lat = spot.lat,
-            lng = spot.lng,
-            colorHex = SpotCategory.colorHexForLabel(spot.category),
-        )
-    }
+    fun spots(): List<IosSpot> = Spots.repository.getSpots().map { iosSpot(it) }
+
+    /**
+     * The CURRENT user's OWN spots (Phase 4) for the profile's "meine Spots"
+     * tab, sourced from the shared offline-first [Profiles.repository] (a PURE
+     * cache read — [com.example.thirdspace.data.ProfileRepository.ownSpots]; no
+     * remote fetch here), mapped to the SAME flat [IosSpot] shape [spots] uses
+     * (via the shared [iosSpot] helper). Refreshed by the existing [loadProfile]
+     * / [observeProfile] flow — no new refresh hook needed.
+     */
+    fun ownSpots(): List<IosSpot> = Profiles.repository.ownSpots().map { iosSpot(it) }
+
+    /**
+     * Map a shared [Spot] to the flat [IosSpot] boundary shape, reused by both
+     * [spots] (the map) and [ownSpots] (the profile tab) so the mapping lives
+     * in ONE place. [IosSpot.colorHex] is the category marker color from the
+     * shared [SpotCategory] (Swift never hardcodes category colors).
+     */
+    private fun iosSpot(spot: Spot): IosSpot = IosSpot(
+        id = spot.id,
+        name = spot.name,
+        category = spot.category,
+        neighborhood = spot.neighborhood,
+        verified = spot.verified,
+        checkInCount = spot.checkInCount,
+        lat = spot.lat,
+        lng = spot.lng,
+        colorHex = SpotCategory.colorHexForLabel(spot.category),
+    )
 
     /**
      * The "#RRGGBB" marker color for a stored category [category] label,

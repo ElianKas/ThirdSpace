@@ -26,9 +26,13 @@ struct ProfileEditView: View {
 
     @State private var selectedTab: EditTab = .profile
 
-    /// The current user's dummy profile — source of the seeded field values and
-    /// the account tab's current-email line.
-    private let profile = FeedData.profile()
+    /// The current user's profile, from the shared offline-first store (the
+    /// real `profiles` row when logged in; a neutral non-dummy fallback
+    /// otherwise). Backs the account tab's current-email line and, via Save,
+    /// the real UPDATE of name/city/bio (Phase 2). Konto-tab email/password and
+    /// the private toggle stay local/no-op.
+    @Environment(ProfileStore.self) private var profileStore
+    private var profile: UIProfile { profileStore.profile }
 
     // Local, non-persisted edit state (seeded from the dummy profile).
     @State private var name: String
@@ -40,6 +44,12 @@ struct ProfileEditView: View {
     @State private var newEmail: String = ""
     @State private var newPassword: String = ""
     @State private var confirmPassword: String = ""
+
+    /// In-flight guard for the profile Save so a double-tap can't fire two
+    /// concurrent writes. Disables the Save button while a save is pending.
+    /// No user-facing string is added (per Phase 2 constraint); a failed/offline
+    /// save simply re-enables the button (the optimistic local value stays).
+    @State private var isSaving: Bool = false
 
     init() {
         let profile = FeedData.profile()
@@ -130,8 +140,10 @@ struct ProfileEditView: View {
                 icon: "checkmark",
                 label: loc.strings.save,
                 style: .primary,
-                action: {}
+                action: saveProfile
             )
+            .disabled(isSaving)
+            .opacity(isSaving ? 0.6 : 1)
             blockedUsersRow
             logoutButton
             deleteAccountButton
@@ -395,6 +407,22 @@ struct ProfileEditView: View {
                 style: .primary,
                 action: {}
             )
+        }
+    }
+
+    // MARK: Save
+
+    /// Save the locally edited name/city/bio through the shared store. The
+    /// store applies the change optimistically and reconciles on success; we
+    /// only guard against a concurrent double-tap here. On completion the local
+    /// `@State` already matches the store, so no reseed is needed; a failed /
+    /// offline save (ok == false) simply re-enables the button (no new
+    /// user-facing string is introduced this phase).
+    private func saveProfile() {
+        guard !isSaving else { return }
+        isSaving = true
+        profileStore.save(name: name, city: city, bio: bio) { _ in
+            isSaving = false
         }
     }
 

@@ -16,9 +16,17 @@ struct iOSApp: App {
     /// restore see the configured (or unconfigured) client.
     @State private var session: Session
 
+    /// App-wide current-user profile state, injected alongside `session`.
+    /// Seeds from the shared `FeedBridge` (a neutral snapshot pre-fetch), then
+    /// refreshes the real `profiles` row from the backend. Constructed AFTER
+    /// `configureSupabase()` so its initial read + refresh see the configured
+    /// (or unconfigured) client.
+    @State private var profileStore: ProfileStore
+
     init() {
         Self.configureSupabase()
         _session = State(initialValue: Session())
+        _profileStore = State(initialValue: ProfileStore())
     }
 
     /// Read the Supabase project URL + publishable key from Info.plist (seeded
@@ -53,6 +61,7 @@ struct iOSApp: App {
             ContentView()
                 .environment(localization)
                 .environment(session)
+                .environment(profileStore)
         }
     }
 }

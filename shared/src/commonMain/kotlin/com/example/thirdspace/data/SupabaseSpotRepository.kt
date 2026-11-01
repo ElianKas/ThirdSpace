@@ -46,6 +46,26 @@ internal data class SpotInsertDto(
 )
 
 /**
+ * Pure [SpotDto] -> [Spot] derivation (re-deriving the UI-only fields via
+ * [SpotMapping]), exposed `internal` so it can be REUSED by every `spots` read
+ * path (the map via [SupabaseSpotRepository.fetchSpots] AND the profile's
+ * own-spots read via [SupabaseProfileRepository.fetchOwnSpots]) rather than
+ * duplicating the decode-to-[Spot] map.
+ */
+internal object SpotDtoMapping {
+    /** Map one decoded `spots` row to the flat [Spot]. */
+    fun toSpot(dto: SpotDto): Spot = SpotMapping.toSpot(
+        id = dto.id,
+        name = dto.name,
+        category = dto.category,
+        neighborhood = dto.neighborhood,
+        lat = dto.lat,
+        lng = dto.lng,
+        verifiedInt = if (dto.verified) 1L else 0L,
+    )
+}
+
+/**
  * The remote spot source seam. An interface so [CachingSpotRepository] can be
  * unit-tested against a FAKE remote (no network), while production uses the
  * supabase-kt-backed [SupabaseSpotRepository]. Both methods are `suspend` and
@@ -90,17 +110,7 @@ internal class SupabaseSpotRepository : RemoteSpotSource {
     override suspend fun fetchSpots(): List<Spot> {
         val c = client ?: return emptyList()
         val rows = c.from("spots").select().decodeList<SpotDto>()
-        return rows.map { dto ->
-            SpotMapping.toSpot(
-                id = dto.id,
-                name = dto.name,
-                category = dto.category,
-                neighborhood = dto.neighborhood,
-                lat = dto.lat,
-                lng = dto.lng,
-                verifiedInt = if (dto.verified) 1L else 0L,
-            )
-        }
+        return rows.map { SpotDtoMapping.toSpot(it) }
     }
 
     /**

@@ -256,10 +256,64 @@ enum FeedData {
         FeedBridge.shared.spots().map { UISpot(bridged: $0) }
     }
 
+    /// Pull the CURRENT user's OWN posts (Phase 4) from the shared framework and
+    /// map to `UIPost` — what the profile's "meine Posts" tab shows (posts where
+    /// `author_id == uid`), replacing the old global-feed derivation. A PURE
+    /// cache read; refreshed by the existing `loadProfile`/`observeProfile` flow.
+    static func ownPosts() -> [UIPost] {
+        FeedBridge.shared.ownPosts().map { UIPost(bridged: $0) }
+    }
+
+    /// Pull the CURRENT user's OWN spots (Phase 4) from the shared framework and
+    /// map to `UISpot` — what the profile's "meine Spots" tab shows (spots where
+    /// `owner_id == uid`), replacing the old global-feed derivation. A PURE cache
+    /// read; refreshed by the existing `loadProfile`/`observeProfile` flow.
+    static func ownSpots() -> [UISpot] {
+        FeedBridge.shared.ownSpots().map { UISpot(bridged: $0) }
+    }
+
     /// Pull the bridged current-user profile from the shared framework. Single
-    /// source of truth for the profile screen.
+    /// source of truth for the profile screen. A PURE cache read: it does NOT
+    /// trigger a remote fetch (use `loadProfile` for that). Returns a neutral,
+    /// non-dummy snapshot until the first `loadProfile` populates the real row.
     static func profile() -> UIProfile {
         UIProfile(bridged: FeedBridge.shared.profile())
+    }
+
+    /// Kick off a background remote refresh of the current user's profile. The
+    /// flat `completion` fires on the MAIN thread once the refresh is scheduled;
+    /// callers re-read `profile()` in it to pick up the real `profiles` row.
+    /// Reads alone no longer trigger a remote fetch, so this is the explicit
+    /// pull path. Mirrors `loadFeed`.
+    static func loadProfile(completion: @escaping () -> Void) {
+        FeedBridge.shared.loadProfile(completion: completion)
+    }
+
+    /// Register a flat listener invoked on the MAIN thread whenever the shared
+    /// cached profile changes from a background refresh, so the UI can re-read
+    /// `profile()` live. Register once per view lifetime. Mirrors `observeFeed`.
+    static func observeProfile(_ listener: @escaping () -> Void) {
+        FeedBridge.shared.observeProfile(listener: listener)
+    }
+
+    /// Save an EDIT of the current user's profile (name/city/bio) through the
+    /// shared `FeedBridge.updateProfile` write path: an OPTIMISTIC in-memory
+    /// update (surfaced live via `observeProfile`) + a best-effort remote UPDATE
+    /// of the own `profiles` row. The flat `completion` fires on the MAIN thread
+    /// with the `Bool` outcome; `false` means NOT persisted remotely (offline /
+    /// unauth — there is no durable profile queue), so callers must not treat it
+    /// as success. FLAT: String args + a Bool closure; no suspend/supabase types.
+    static func updateProfile(
+        name: String,
+        city: String,
+        bio: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        // The bridged Kotlin closure hands back a boxed `KotlinBoolean`; unbox
+        // it to a Swift `Bool` at the boundary (mirrors `vote`'s Int32 bridging).
+        FeedBridge.shared.updateProfile(name: name, city: city, bio: bio) { ok in
+            completion(ok.boolValue)
+        }
     }
 
     /// Pull the bridged report reasons from the shared framework. Single source
