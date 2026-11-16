@@ -1,24 +1,42 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# ThirdSpace
 
-* [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+**Privates, persönliches Entwicklungsprojekt.**
 
-* [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./shared/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./shared/src/jvmMain/kotlin)
-    folder is the appropriate location.
+ThirdSpace ist eine App zum Entdecken, Sammeln und Teilen von Orten. Das Projekt verbindet eine native iOS-Oberfläche in SwiftUI mit einer geteilten Daten- und Geschäftslogik in Kotlin Multiplatform.
 
-### Running the apps
+## Funktionen und Entwicklungsstand
 
-Use the run configurations provided by the run widget in your IDE's toolbar. You can also use these commands and options:
+Im aktuellen Code umgesetzt:
 
-- Android app: `./gradlew :androidApp:assembleDebug`
-- iOS app: open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+- Mapbox-Karte mit Ortsmarkierungen, Detailansichten und dem Anlegen eigener Orte; Mapbox-POIs können als Ausgangspunkt übernommen werden.
+- Feed mit ortsbezogenen Beiträgen, Kommentaren und Bewertungen.
+- Registrierung und Anmeldung über Supabase sowie Profilbearbeitung und Folgen anderer Nutzer.
+- Eigene Sammlungen zum Speichern von Orten.
+- Lokaler SQLDelight-Cache für Orte und Feed-Daten sowie Warteschlangen für ausgewählte Schreibvorgänge.
+- Gemeinsame UI-Texte für Deutsch und Englisch.
 
----
+Das Projekt befindet sich in Entwicklung. Die iOS-App enthält die beschriebenen Oberflächen; `androidApp/` ist derzeit ein Startplatzhalter. Der Discover-Tab, die Kartensuche und einzelne Kartenbedienelemente sind ebenfalls Platzhalter. Backend-Funktionen benötigen eine konfigurierte Supabase-Instanz und eine Anmeldung. Für Folgen und Sammlungen gibt es keine dauerhafte Offline-Warteschlange.
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+## Technik und Struktur
+
+**SwiftUI · Kotlin Multiplatform · Coroutines · Ktor · Supabase/PostgreSQL · SQLDelight · Mapbox**
+
+| Pfad | Inhalt |
+| --- | --- |
+| `iosApp/iosApp/` | Native Views, Navigation und UI-Zustand |
+| `shared/src/commonMain/` | Modelle, Repositories, Cache, SQL-Schema und Übersetzungen |
+| `shared/src/iosMain/` | Swift-Anbindung über `FeedBridge` und iOS-spezifische Implementierungen |
+| `shared/src/commonTest/`, `shared/src/androidHostTest/` | Tests für Datenlogik, Caching und Datenbankmigrationen |
+| `supabase/migrations/` | PostgreSQL-Schema, Views und Zugriffsregeln |
+| `androidApp/` | Android-Einstiegspunkt mit Platzhalteroberfläche |
+
+Die SwiftUI-Oberfläche greift über eine Bridge mit einfachen Datenwerten auf die Kotlin-Repositories zu. Netzwerk- und Datenbankzugriffe bleiben im geteilten Modul.
+
+## Lokal einrichten
+
+1. Das Xcode-Projekt `iosApp/iosApp.xcodeproj` öffnen; für das Shared-Modul wird die Kotlin-/Gradle-Toolchain benötigt.
+2. `iosApp/Mapbox.xcconfig.template` und `iosApp/Supabase.xcconfig.template` jeweils ohne `.template` kopieren und eigene Werte eintragen. Die Supabase-URL wird dort als Host ohne `https://` hinterlegt.
+3. Für den Mapbox-SDK-Download die Hinweise in [netrc.template](iosApp/netrc.template) beachten.
+4. Die SQL-Dateien in `supabase/migrations/` in Dateinamenreihenfolge auf eine eigene Supabase-Instanz anwenden und die iOS-App in Xcode starten.
+
+Die lokalen Konfigurationsdateien sind von Git ausgeschlossen. Ohne Backend-Konfiguration sind die Anmelde- und Serverfunktionen nicht verfügbar.
